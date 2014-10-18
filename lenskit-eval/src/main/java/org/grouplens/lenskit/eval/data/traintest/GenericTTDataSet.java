@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -22,16 +22,17 @@ package org.grouplens.lenskit.eval.data.traintest;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
+import org.grouplens.lenskit.core.LenskitConfiguration;
 import org.grouplens.lenskit.data.dao.EventDAO;
-import org.grouplens.lenskit.data.pref.PreferenceDomain;
+import org.grouplens.lenskit.data.dao.UserDAO;
+import org.grouplens.lenskit.data.dao.UserListUserDAO;
 import org.grouplens.lenskit.eval.data.DataSource;
-import org.grouplens.lenskit.eval.data.GenericDataSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.inject.Provider;
 import java.util.Collections;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * A train-test data set backed by a pair of factories.
@@ -48,14 +49,15 @@ public class GenericTTDataSet implements TTDataSet {
     private final DataSource queryData;
     @Nonnull
     private final DataSource testData;
-    @Nullable
-    private final PreferenceDomain preferenceDomain;
+    @Nonnull
+    private final UUID group;
     private final Map<String, Object> attributes;
 
     public GenericTTDataSet(@Nonnull String name,
                             @Nonnull DataSource train,
                             @Nullable DataSource query,
                             @Nonnull DataSource test,
+                            UUID grp,
                             Map<String, Object> attrs) {
         Preconditions.checkNotNull(train, "no training data");
         Preconditions.checkNotNull(test, "no test data");
@@ -63,40 +65,12 @@ public class GenericTTDataSet implements TTDataSet {
         trainData = train;
         queryData = query;
         testData = test;
-        preferenceDomain = trainData.getPreferenceDomain();
+        group = grp;
         if (attrs == null) {
             attributes = Collections.emptyMap();
         } else {
             attributes = Maps.newHashMap(attrs);
         }
-    }
-
-    /**
-     * Create a new generic data set.
-     *
-     * @param name   The data set name.
-     * @param train  The training DAO factory.
-     * @param test   The test DAO factory.
-     * @param domain The preference domain.
-     */
-    public GenericTTDataSet(@Nonnull String name,
-                            @Nonnull Provider<EventDAO> train,
-                            @Nullable Provider<EventDAO> query,
-                            @Nonnull Provider<EventDAO> test,
-                            @Nullable PreferenceDomain domain) {
-        Preconditions.checkNotNull(name);
-        Preconditions.checkNotNull(train);
-        Preconditions.checkNotNull(test);
-        this.name = name;
-        trainData = new GenericDataSource(name + ".train", train, domain);
-        if (query != null) {
-            queryData = new GenericDataSource(name + ".query", test, domain);
-        } else {
-            queryData = null;
-        }
-        testData = new GenericDataSource(name + ".test", test, domain);
-        preferenceDomain = domain;
-        attributes = Collections.singletonMap("DataSet", (Object) name);
     }
 
     @Override
@@ -111,20 +85,14 @@ public class GenericTTDataSet implements TTDataSet {
     }
 
     @Override
+    public UUID getIsolationGroup() {
+        return group;
+    }
+
+    @Override
     public long lastModified() {
         return Math.max(trainData.lastModified(),
                         testData.lastModified());
-    }
-
-    @Override
-    public void release() {
-        /* no-op */
-    }
-
-    @Override
-    @Nullable
-    public PreferenceDomain getPreferenceDomain() {
-        return preferenceDomain;
     }
 
     @Override
@@ -160,6 +128,13 @@ public class GenericTTDataSet implements TTDataSet {
     }
 
     @Override
+    public void configure(LenskitConfiguration config) {
+        trainData.configure(config);
+        config.bind(QueryData.class, UserDAO.class)
+              .to(new UserListUserDAO(getTestData().getUserDAO().getUserIds()));
+    }
+
+    @Override
     public String toString() {
         return String.format("{TTDataSet %s}", name);
     }
@@ -186,11 +161,20 @@ public class GenericTTDataSet implements TTDataSet {
      * @return A new builder initialized to make a copy of this data set definition.
      */
     public GenericTTDataBuilder copyBuilder() {
-        GenericTTDataBuilder builder = newBuilder(getName());
-        builder.setTest(getTestData())
-               .setQuery(getQueryData())
-               .setTrain(getTrainingData());
-        for (Map.Entry<String,Object> attr: getAttributes().entrySet()) {
+        return copyBuilder(this);
+    }
+
+    /**
+     * Create a new builder initialized with this data set's values.
+     * @return A new builder initialized to make a copy of this data set definition.
+     */
+    public static GenericTTDataBuilder copyBuilder(TTDataSet data) {
+        GenericTTDataBuilder builder = newBuilder(data.getName());
+        builder.setTest(data.getTestData())
+               .setQuery(data.getQueryData())
+               .setTrain(data.getTrainingData())
+               .setIsolationGroup(data.getIsolationGroup());
+        for (Map.Entry<String,Object> attr: data.getAttributes().entrySet()) {
             builder.setAttribute(attr.getKey(), attr.getValue());
         }
         return builder;

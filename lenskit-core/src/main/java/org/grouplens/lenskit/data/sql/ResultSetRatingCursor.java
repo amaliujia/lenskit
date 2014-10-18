@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -45,7 +45,7 @@ class ResultSetRatingCursor extends AbstractPollingCursor<Rating> {
         resultSet = stmt.executeQuery();
         try {
             // SUPPRESS CHECKSTYLE MagicNumber
-            hasTimestampColumn = resultSet.getMetaData().getColumnCount() > 4;
+            hasTimestampColumn = resultSet.getMetaData().getColumnCount() >= JDBCRatingDAO.COL_TIMESTAMP;
         } catch (SQLException e) {
             resultSet.close();
             throw e;

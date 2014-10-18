@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,75 +20,87 @@
  */
 package org.grouplens.lenskit.eval.metrics.topn;
 
-import com.google.common.collect.ImmutableList;
-import org.grouplens.lenskit.eval.algorithm.AlgorithmInstance;
+import org.grouplens.lenskit.Recommender;
+import org.grouplens.lenskit.eval.Attributed;
 import org.grouplens.lenskit.eval.data.traintest.TTDataSet;
-import org.grouplens.lenskit.eval.metrics.AbstractTestUserMetric;
-import org.grouplens.lenskit.eval.metrics.TestUserMetricAccumulator;
+import org.grouplens.lenskit.eval.metrics.AbstractMetric;
+import org.grouplens.lenskit.eval.metrics.ResultColumn;
 import org.grouplens.lenskit.eval.traintest.TestUser;
 import org.grouplens.lenskit.scored.ScoredId;
+import org.grouplens.lenskit.util.statistics.MeanAccumulator;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
  * Metric that measures how long a TopN list actually is.
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
-public class TopNLengthMetric extends AbstractTestUserMetric {
+public class TopNLengthMetric extends AbstractMetric<MeanAccumulator, TopNLengthMetric.Result, TopNLengthMetric.Result> {
+    private final String prefix;
+    private final String suffix;
     private final int listSize;
     private final ItemSelector candidates;
     private final ItemSelector exclude;
-    private final ImmutableList<String> columns;
 
-    public TopNLengthMetric(String lbl, int listSize, ItemSelector candidates, ItemSelector exclude) {
+    public TopNLengthMetric(String pre, String sfx, int listSize, ItemSelector candidates, ItemSelector exclude) {
+        super(Result.class, Result.class);
+        prefix = pre;
+        suffix = sfx;
         this.listSize = listSize;
         this.candidates = candidates;
         this.exclude = exclude;
-        columns = ImmutableList.of(lbl);
     }
 
     @Override
-    public Accum makeAccumulator(AlgorithmInstance algo, TTDataSet ds) {
-        return new Accum();
+    protected String getPrefix() {
+        return prefix;
     }
 
     @Override
-    public List<String> getColumnLabels() {
-        return columns;
+    protected String getSuffix() {
+        return suffix;
     }
 
     @Override
-    public List<String> getUserColumnLabels() {
-        return columns;
+    public MeanAccumulator createContext(Attributed algo, TTDataSet ds, Recommender rec) {
+        return new MeanAccumulator();
     }
 
-    class Accum implements TestUserMetricAccumulator {
-        double total = 0;
-        int nusers = 0;
-
-        @Nonnull
-        @Override
-        public Object[] evaluate(TestUser user) {
-            List<ScoredId> recs;
-            recs = user.getRecommendations(listSize, candidates, exclude);
-            if (recs == null) {
-                return new Object[1];
-            }
-            int n = recs.size();
-            total += n;
-            nusers += 1;
-            return userRow(n);
+    @Override
+    public Result doMeasureUser(TestUser user, MeanAccumulator context) {
+        List<ScoredId> recs;
+        recs = user.getRecommendations(listSize, candidates, exclude);
+        if (recs == null) {
+            return null;
         }
+        int n = recs.size();
+        context.add(n);
+        return new Result(n);
+    }
 
-        @Nonnull
-        @Override
-        public Object[] finalResults() {
-            if (nusers > 0) {
-                return finalRow(total / nusers);
-            } else {
-                return finalRow();
-            }
+    @Override
+    protected Result getTypedResults(MeanAccumulator context) {
+        return new Result(context.getMean());
+    }
+
+    public static class Result {
+        @ResultColumn("TopN.ActualLength")
+        public final double length;
+
+        public Result(double len) {
+            length = len;
         }
     }
+
+    /**
+     * Build a Top-N length metric to measure Top-N lists.
+     * @author <a href="http://www.grouplens.org">GroupLens Research</a>
+     */
+    public static class Builder extends TopNMetricBuilder<TopNLengthMetric> {
+        @Override
+        public TopNLengthMetric build() {
+            return new TopNLengthMetric(prefix, suffix, listSize, candidates, exclude);
+        }
+    }
+
 }

@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,10 +20,13 @@
  */
 package org.grouplens.lenskit.transform.quantize;
 
+import mikera.vectorz.impl.ImmutableVector;
 import org.grouplens.lenskit.core.Shareable;
 import org.grouplens.lenskit.data.pref.PreferenceDomain;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
+import javax.inject.Provider;
 
 /**
  * Quantizer that uses a range and precision to determine discrete values.
@@ -37,7 +40,7 @@ public class PreferenceDomainQuantizer extends ValueArrayQuantizer {
 
     private final PreferenceDomain domain;
 
-    static double[] makeValues(PreferenceDomain domain) {
+    static ImmutableVector makeValues(PreferenceDomain domain) {
         if (!domain.hasPrecision()) {
             throw new IllegalArgumentException("domain is not discrete");
         }
@@ -56,7 +59,7 @@ public class PreferenceDomainQuantizer extends ValueArrayQuantizer {
         for (int i = 0; i <= n; i++) {
             values[i] = min + (prec * i);
         }
-        return values;
+        return ImmutableVector.wrap(values);
     }
 
     /**
@@ -84,5 +87,22 @@ public class PreferenceDomainQuantizer extends ValueArrayQuantizer {
     @SuppressWarnings("unused")
     public PreferenceDomain getPreferenceDomain() {
         return domain;
+    }
+
+    public static class AutoProvider implements Provider<PreferenceDomainQuantizer> {
+        private final PreferenceDomain domain;
+
+        @Inject
+        public AutoProvider(@Nullable PreferenceDomain dom) {
+            domain = dom;
+        }
+
+        public PreferenceDomainQuantizer get() {
+            if (domain == null) {
+                return null;
+            } else {
+                return new PreferenceDomainQuantizer(domain);
+            }
+        }
     }
 }

@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,25 +20,19 @@
  */
 package org.grouplens.lenskit.data.snapshot;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.longs.*;
+import it.unimi.dsi.fastutil.longs.LongCollection;
 import org.grouplens.grapht.annotation.DefaultProvider;
 import org.grouplens.lenskit.collections.CollectionUtils;
 import org.grouplens.lenskit.collections.FastCollection;
 import org.grouplens.lenskit.core.Shareable;
-import org.grouplens.lenskit.core.Transient;
-import org.grouplens.lenskit.cursors.Cursor;
 import org.grouplens.lenskit.data.dao.EventDAO;
-import org.grouplens.lenskit.data.dao.SortOrder;
-import org.grouplens.lenskit.data.event.Rating;
 import org.grouplens.lenskit.data.pref.IndexedPreference;
-import org.grouplens.lenskit.data.pref.Preference;
-import org.grouplens.lenskit.util.Index;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.grouplens.lenskit.indexes.IdIndexMapping;
 
-import javax.inject.Inject;
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -52,96 +46,21 @@ import java.util.Random;
  *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
-@DefaultProvider(PackedPreferenceSnapshot.Provider.class)
+@DefaultProvider(PackedPreferenceSnapshotBuilder.class)
 @Shareable
 public class PackedPreferenceSnapshot extends AbstractPreferenceSnapshot {
-    private static final Logger logger = LoggerFactory.getLogger(PackedPreferenceSnapshot.class);
-
-    /**
-     * A Factory that creates PackedRatingBuildSnapshots from an opened
-     * DataAccessObject.
-     */
-    public static class Provider implements javax.inject.Provider<PackedPreferenceSnapshot> {
-        private final EventDAO dao;
-        private Random random;
-
-        @Inject
-        public Provider(@Transient EventDAO dao, Random random) {
-            this.dao = dao;
-            this.random = random;
-        }
-
-        @Override
-        public PackedPreferenceSnapshot get() {
-            logger.debug("Packing build context");
-
-            PackedPreferenceDataBuilder bld = new PackedPreferenceDataBuilder();
-
-            // Track the indices where everything appears for finding previous
-            // rating info for a user-item pair
-            Long2ObjectMap<Long2IntMap> uiIndexes =
-                    new Long2ObjectOpenHashMap<Long2IntMap>(2000);
-
-            // Since we iterate in timestamp order, we can just overwrite
-            // old data for a user-item pair with new data.
-            Cursor<Rating> ratings = dao.streamEvents(Rating.class, SortOrder.TIMESTAMP);
-            try {
-                for (Rating r : ratings.fast()) {
-                    final long user = r.getUserId();
-                    final long item = r.getItemId();
-                    final Preference p = r.getPreference();
-
-                    // get the item -> index map for this user
-                    Long2IntMap imap = uiIndexes.get(user);
-                    if (imap == null) {
-                        imap = new Long2IntOpenHashMap();
-                        imap.defaultReturnValue(-1);
-                        uiIndexes.put(user, imap);
-                    }
-
-                    // have we seen the item?
-                    final int index = imap.get(item);
-                    if (index < 0) {    // we've never seen (user,item) before
-                        // if this is not an unrate (a no-op), add the pref
-                        if (p != null) {
-                            int idx = bld.add(p);
-                            imap.put(item, idx);
-                        }
-                    } else {            // we have seen this rating before
-                        if (p == null) {
-                            // free the entry, no rating here
-                            bld.release(index);
-                            imap.put(item, -1);
-                        } else {
-                            // just overwrite the previous value
-                            bld.set(index, p);
-                        }
-                    }
-                }
-
-                logger.debug("Packed {} ratings", bld.size());
-            } finally {
-                ratings.close();
-            }
-
-            bld.shuffle();
-            PackedPreferenceData data = bld.build();
-
-            return new PackedPreferenceSnapshot(data);
-        }
-    }
-
     public static PreferenceSnapshot pack(EventDAO dao) {
-        Provider p = new Provider(dao, new Random());
+        PackedPreferenceSnapshotBuilder p = new PackedPreferenceSnapshotBuilder(dao, new Random());
         return p.get();
     }
 
     private PackedPreferenceData data;
-    private volatile List<? extends IntList> userIndices;
+    private Supplier<List<FastCollection<IndexedPreference>>> userIndexLists;
 
-    protected PackedPreferenceSnapshot(PackedPreferenceData data) {
+    PackedPreferenceSnapshot(PackedPreferenceData data) {
         super();
         this.data = data;
+        userIndexLists = Suppliers.memoize(new UserPreferenceSupplier());
     }
 
     private void requireValid() {
@@ -150,51 +69,24 @@ public class PackedPreferenceSnapshot extends AbstractPreferenceSnapshot {
         }
     }
 
-    private List<? extends IntList> computeUserIndices() {
-        int nusers = data.getUserIndex().getObjectCount();
-        ArrayList<IntArrayList> userLists = new ArrayList<IntArrayList>(nusers);
-        for (int i = 0; i < nusers; i++) {
-            userLists.add(new IntArrayList());
-        }
-        for (IndexedPreference pref : CollectionUtils.fast(getRatings())) {
-            final int uidx = pref.getUserIndex();
-            final int idx = pref.getIndex();
-            userLists.get(uidx).add(idx);
-        }
-        for (IntArrayList lst : userLists) {
-            lst.trim();
-        }
-        return userLists;
-    }
-
-    private void requireUserIndices() {
-        if (userIndices == null) {
-            synchronized (this) {
-                if (userIndices == null) {
-                    userIndices = computeUserIndices();
-                }
-            }
-        }
-    }
-
     @Override
     public LongCollection getUserIds() {
-        return userIndex().getIds();
+        return userIndex().getIdList();
     }
 
     @Override
     public LongCollection getItemIds() {
-        return itemIndex().getIds();
+        return itemIndex().getIdList();
     }
 
     @Override
-    public Index userIndex() {
+    public IdIndexMapping userIndex() {
         requireValid();
         return data.getUserIndex();
     }
 
     @Override
-    public Index itemIndex() {
+    public IdIndexMapping itemIndex() {
         requireValid();
         return data.getItemIndex();
     }
@@ -206,18 +98,46 @@ public class PackedPreferenceSnapshot extends AbstractPreferenceSnapshot {
 
     @Override
     public FastCollection<IndexedPreference> getUserRatings(long userId) {
-        int uidx = userIndex().getIndex(userId);
-        requireUserIndices();
-        if (uidx < 0 || uidx >= userIndices.size()) {
+        int uidx = userIndex().tryGetIndex(userId);
+        List<FastCollection<IndexedPreference>> userLists = userIndexLists.get();
+        if (uidx < 0 || uidx >= userLists.size()) {
             return CollectionUtils.emptyFastCollection();
         } else {
-            return new PackedPreferenceCollection(data, userIndices.get(uidx));
+            return userLists.get(uidx);
         }
     }
 
     @Override
     public void close() {
+        // FIXME Close is never called, because there is no lifecycle support.
         super.close();
         data = null;
+        userIndexLists = null;
+    }
+
+    /**
+     * Supplier to create user index lists.  Used to re-use memoization logic.
+     */
+    private class UserPreferenceSupplier implements Supplier<List<FastCollection<IndexedPreference>>> {
+        @Override @Nonnull
+        public List<FastCollection<IndexedPreference>> get() {
+            int nusers = data.getUserIndex().size();
+            ArrayList<IntArrayList> userLists = new ArrayList<IntArrayList>(nusers);
+            for (int i = 0; i < nusers; i++) {
+                userLists.add(new IntArrayList());
+            }
+            for (IndexedPreference pref : CollectionUtils.fast(getRatings())) {
+                final int uidx = pref.getUserIndex();
+                final int idx = pref.getIndex();
+                userLists.get(uidx).add(idx);
+            }
+            ArrayList<FastCollection<IndexedPreference>> users =
+                    new ArrayList<FastCollection<IndexedPreference>>(nusers);
+            for (IntArrayList list: userLists) {
+                list.trim();
+                users.add(new PackedPreferenceCollection(data, list));
+            }
+            return users;
+        }
     }
 }

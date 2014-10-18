@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -24,7 +24,9 @@ import com.google.common.collect.ImmutableMap;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import it.unimi.dsi.fastutil.longs.Long2DoubleMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.LongSortedSet;
 import org.grouplens.lenskit.collections.LongKeyDomain;
+import org.grouplens.lenskit.collections.LongUtils;
 import org.grouplens.lenskit.symbols.Symbol;
 import org.grouplens.lenskit.symbols.TypedSymbol;
 
@@ -91,7 +93,7 @@ public final class ImmutableSparseVector extends SparseVector implements Seriali
 
     /**
      * Construct a new sparse vector from a key set and a pre-existing array.  This array will copy
-     * the channels passed into it, but will <emph>not</emph> copy the key set or value array.
+     * the channels passed into it, but will <em>not</em> copy the key set or value array.
      *
      * @param ks          The key set.  Its active keys are the key set, and all keys form the
      *                    domain.  Not copied.
@@ -103,8 +105,16 @@ public final class ImmutableSparseVector extends SparseVector implements Seriali
                           Map<Symbol, ImmutableSparseVector> chanVectors,
                           Map<TypedSymbol<?>, Long2ObjectMap<?>> chans) {
         super(ks, vs);
-        channelVectors = ImmutableMap.copyOf(chanVectors);
-        channels = ImmutableMap.copyOf(chans);
+        if (chanVectors.isEmpty()) {
+            channelVectors = Collections.emptyMap();
+        } else {
+            channelVectors = ImmutableMap.copyOf(chanVectors);
+        }
+        if (chans.isEmpty()) {
+            channels = Collections.emptyMap();
+        } else {
+            channels = ImmutableMap.copyOf(chans);
+        }
     }
 
     @Override
@@ -171,29 +181,43 @@ public final class ImmutableSparseVector extends SparseVector implements Seriali
         return channels.keySet();
     }
 
+    @Override
+    public ImmutableSparseVector combineWith(SparseVector o) {
+        LongSortedSet key = this.keyDomain();
+        LongSortedSet newKey = o.keyDomain();
+        MutableSparseVector result = MutableSparseVector.create(LongUtils.setUnion(key, newKey));
+        result.set(this);
+        result.set(o);
+        return result.freeze();
+    }
+
+
     // We override these three functions in the case that this vector is Immutable,
     // so we can avoid computing them more than once.
     @Override
     public double norm() {
-        if (norm == null) {
-            norm = super.norm();
+        Double n = norm;
+        if (n == null) {
+            norm = n = super.norm();
         }
-        return norm;
+        return n;
     }
 
     @Override
     public double sum() {
-        if (sum == null) {
-            sum = super.sum();
+        Double s = sum;
+        if (s == null) {
+            sum = s = super.sum();
         }
-        return sum;
+        return s;
     }
 
     @Override
     public double mean() {
-        if (mean == null) {
-            mean = super.mean();
+        Double m = mean;
+        if (m == null) {
+            mean = m = super.mean();
         }
-        return mean;
+        return m;
     }
 }

@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -22,14 +22,17 @@ package org.grouplens.lenskit.config;
 
 import groovy.lang.Closure;
 import org.grouplens.grapht.Binding;
+import org.grouplens.grapht.Context;
 import org.grouplens.grapht.Module;
-import org.grouplens.lenskit.core.AbstractConfigContext;
+import org.grouplens.grapht.context.ContextPattern;
 import org.grouplens.lenskit.core.LenskitBinding;
 import org.grouplens.lenskit.core.LenskitConfigContext;
 import org.grouplens.lenskit.core.RecommenderConfigurationException;
 import org.grouplens.lenskit.data.pref.PreferenceDomain;
 import org.grouplens.lenskit.data.pref.PreferenceDomainBuilder;
+import org.grouplens.lenskit.inject.AbstractConfigContext;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
@@ -132,6 +135,11 @@ public class BindingDSL extends AbstractConfigContext {
         return context.set(param);
     }
 
+    @Override
+    public void addComponent(@Nonnull Object obj) {
+        context.addComponent(obj);
+    }
+
     private LenskitConfigContext configure(LenskitConfigContext ctx, Closure<?> block) {
         GroovyUtils.callWithDelegate(block, new BindingDSL(ctx));
         return ctx;
@@ -196,6 +204,15 @@ public class BindingDSL extends AbstractConfigContext {
     public LenskitConfigContext within(@Nullable Annotation qualifier,
                                        Class<?> type, Closure<?> block) {
         return configure(within(qualifier, type), block);
+    }
+
+    @Override
+    public LenskitConfigContext matching(ContextPattern pattern) {
+        return context.matching(pattern);
+    }
+
+    public Context matching(ContextPattern pattern, Closure<?> block) {
+        return configure(matching(pattern), block);
     }
 
     /** @see LenskitConfigContext#at(Class) */

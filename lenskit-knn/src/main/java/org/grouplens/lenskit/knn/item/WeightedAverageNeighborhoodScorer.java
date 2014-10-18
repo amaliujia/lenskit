@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -23,9 +23,11 @@ package org.grouplens.lenskit.knn.item;
 import org.grouplens.lenskit.collections.CollectionUtils;
 import org.grouplens.lenskit.core.Shareable;
 import org.grouplens.lenskit.scored.ScoredId;
+import org.grouplens.lenskit.scored.ScoredIdBuilder;
+import org.grouplens.lenskit.scored.ScoredIds;
+import org.grouplens.lenskit.symbols.Symbol;
 import org.grouplens.lenskit.vectors.SparseVector;
 
-import javax.inject.Singleton;
 import java.io.Serializable;
 
 import static java.lang.Math.abs;
@@ -36,24 +38,36 @@ import static java.lang.Math.abs;
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
 @Shareable
-@Singleton
 public class WeightedAverageNeighborhoodScorer implements NeighborhoodScorer, Serializable {
     private static final long serialVersionUID = 1L;
+    public static final Symbol NEIGHBORHOOD_WEIGHT_SYMBOL =
+            Symbol.of("org.grouplens.lenskit.knn.item.neighborhoodWeight");
 
     @Override
-    public double score(Iterable<ScoredId> neighbors, SparseVector scores) {
+    public ScoredId score(long item, Iterable<ScoredId> neighbors, SparseVector scores) {
         double sum = 0;
         double weight = 0;
+        int n = 0;
         for (ScoredId id: CollectionUtils.fast(neighbors)) {
             long oi = id.getId();
             double sim = id.getScore();
             weight += abs(sim);
             sum += sim * scores.get(oi);
+            n += 1;
         }
         if (weight > 0) {
-            return sum / weight;
+            ScoredIdBuilder builder = ScoredIds.newBuilder();
+            return builder.setId(item)
+                          .setScore(sum/weight)
+                          .addChannel(NEIGHBORHOOD_WEIGHT_SYMBOL,weight)
+                          .build();
         } else {
-            return Double.NaN;
+            return null;
         }
+    }
+
+    @Override
+    public String toString() {
+        return "[NeighborhoodScorer: WeightedAverage]";
     }
 }

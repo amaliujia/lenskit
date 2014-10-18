@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -490,9 +490,15 @@ public abstract class SparseVector implements Iterable<VectorEntry>, Serializabl
      */
     public double sum() {
         double result = 0;
-        DoubleIterator iter = values().iterator();
-        while (iter.hasNext()) {
-            result += iter.nextDouble();
+        if (keys.isCompletelySet()) {
+            for (int i = keys.domainSize() - 1; i >= 0; i--) {
+                result += values[i];
+            }
+        } else {
+            DoubleIterator iter = values().iterator();
+            while (iter.hasNext()) {
+                result += iter.nextDouble();
+            }
         }
         return result;
     }
@@ -514,8 +520,39 @@ public abstract class SparseVector implements Iterable<VectorEntry>, Serializabl
      * @return The dot (inner) product between this vector and {@var o}.
      */
     public double dot(SparseVector o) {
+        if (keys.isCompletelySet() && o.keys.isCompletelySet()) {
+            return fastDotProduct(o);
+        } else {
+            return slowDotProduct(o);
+        }
+    }
+
+    private double fastDotProduct(SparseVector o) {
         double dot = 0;
 
+        int sz1 = keys.domainSize();
+        int sz2 = o.keys.domainSize();
+
+        int i1 = 0, i2 = 0;
+        while (i1 < sz1 && i2 < sz2) {
+            final long k1 = keys.getKey(i1);
+            final long k2 = o.keys.getKey(i2);
+            if (k1 < k2) {
+                i1++;
+            } else if (k2 < k1) {
+                i2++;
+            } else {
+                dot += values[i1] * o.values[i2];
+                i1++;
+                i2++;
+            }
+        }
+        return dot;
+    }
+
+    private double slowDotProduct(SparseVector o) {
+        // FIXME This code was tested, but no longer is.  Add relevant tests.
+        double dot = 0;
         Iterator<VectorEntry> i1 = fastIterator();
         Iterator<VectorEntry> i2 = o.fastIterator();
 
@@ -567,6 +604,16 @@ public abstract class SparseVector implements Iterable<VectorEntry>, Serializabl
         }
         return count;
     }
+
+    /**
+     * Combine this vector with another vector by taking the union of the key domains of two vectors.
+     * If both vectors have values the same key, the values in {@code o} override those from the
+     * current vector.
+     *
+     * @param o The other vector
+     * @return A vector whose key domain is the union of the key domains of this vector and the other.
+     */
+    public abstract SparseVector combineWith(SparseVector o);
     //endregion
 
     //region Object support

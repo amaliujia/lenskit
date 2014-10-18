@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -93,10 +93,10 @@ public abstract class AbstractTask<T> extends AbstractFuture<T> implements EvalT
     }
 
     /**
-     * Execute the task.  This calls {@link #perform()}, exposing the return value (or execption)
+     * Execute the task.  This calls {@link #perform()}, exposing the return value (or exception)
      * as the task's value.
      *
-     * @throws TaskExecutionException
+     * @throws TaskExecutionException if there is an error performing the task.
      */
     @Override
     public void execute() throws TaskExecutionException {
@@ -111,5 +111,5 @@ public abstract class AbstractTask<T> extends AbstractFuture<T> implements EvalT
         set(result);
     }
 
-    protected abstract T perform() throws TaskExecutionException;
+    protected abstract T perform() throws TaskExecutionException, InterruptedException;
 }

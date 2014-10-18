@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -24,8 +24,9 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.time.StopWatch;
 import org.grouplens.lenskit.RecommenderBuildException;
+import org.grouplens.lenskit.core.LenskitConfiguration;
 import org.grouplens.lenskit.core.LenskitRecommender;
-import org.grouplens.lenskit.eval.algorithm.LenskitAlgorithmInstance;
+import org.grouplens.lenskit.eval.algorithm.AlgorithmInstance;
 import org.grouplens.lenskit.eval.data.DataSource;
 import org.grouplens.lenskit.util.LogContext;
 import org.slf4j.Logger;
@@ -34,12 +35,12 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 
 /**
- * Train a recommender algorithm and process it with a function.
+ * Train a recommender algorithmInfo and process it with a function.
  */
 public class TrainModelTask<T> extends AbstractTask<T> {
     private static final Logger logger = LoggerFactory.getLogger(TrainModelTask.class);
 
-    private LenskitAlgorithmInstance algorithm;
+    private AlgorithmInstance algorithm;
     private File writeFile;
     private DataSource inputData;
     private Function<LenskitRecommender, T> action;
@@ -52,7 +53,7 @@ public class TrainModelTask<T> extends AbstractTask<T> {
         super(name);
     }
 
-    public LenskitAlgorithmInstance getAlgorithm() {
+    public AlgorithmInstance getAlgorithm() {
         return algorithm;
     }
 
@@ -69,17 +70,17 @@ public class TrainModelTask<T> extends AbstractTask<T> {
     }
 
     /**
-     * Configure the algorithm.
-     * @param algo The algorithm to configure.
+     * Configure the algorithmInfo.
+     * @param algo The algorithmInfo to configure.
      * @return The command (for chaining).
      */
-    public TrainModelTask setAlgorithm(LenskitAlgorithmInstance algo) {
+    public TrainModelTask setAlgorithm(AlgorithmInstance algo) {
         algorithm = algo;
         return this;
     }
 
     /**
-     * Specify a file to write. The trained recommender algorithm will be written
+     * Specify a file to write. The trained recommender algorithmInfo will be written
      * to this file.
      * @param file The file name.
      * @return The command (for chaining).
@@ -115,7 +116,7 @@ public class TrainModelTask<T> extends AbstractTask<T> {
     public T perform() throws TaskExecutionException {
         Preconditions.checkState(algorithm != null, "no algorithm specified");
         Preconditions.checkState(inputData != null, "no input data specified");
-        Preconditions.checkState(inputData != null, "no action specified");
+        Preconditions.checkState(action != null, "no action specified");
         LogContext context = new LogContext();
         try {
             context.put("lenskit.eval.command.class", getName());
@@ -128,7 +129,9 @@ public class TrainModelTask<T> extends AbstractTask<T> {
             timer.start();
             try {
                 logger.info("{}: building recommender {}", getName(), algorithm.getName());
-                rec = algorithm.buildRecommender(inputData, null, null);
+                LenskitConfiguration config = new LenskitConfiguration();
+                inputData.configure(config);
+                rec = algorithm.buildRecommender(config);
             } catch (RecommenderBuildException e) {
                 throw new TaskExecutionException(getName() + ": error building recommender", e);
             }

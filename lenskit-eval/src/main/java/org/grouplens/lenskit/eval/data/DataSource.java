@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,6 +20,7 @@
  */
 package org.grouplens.lenskit.eval.data;
 
+import org.grouplens.lenskit.core.LenskitConfiguration;
 import org.grouplens.lenskit.data.dao.*;
 import org.grouplens.lenskit.data.pref.PreferenceDomain;
 import org.grouplens.lenskit.eval.script.BuiltBy;
@@ -57,13 +58,6 @@ public interface DataSource {
     EventDAO getEventDAO();
 
     /**
-     * Get an event DAO provider.
-     *
-     * @return A provider of event DAOs.
-     */
-    Provider<EventDAO> getEventDAOProvider();
-
-    /**
      * Get a user-event DAO for this data source.  This implementation will probably not be used
      * for model training at present.
      *
@@ -94,6 +88,13 @@ public interface DataSource {
      * @return An user DAO.
      */
     UserDAO getUserDAO();
+
+    /**
+     * Configure LensKit to use this data set.
+     * @param config A LensKit configuration.  Bindings for this data source's data will be added
+     *               to this configuration.
+     */
+    void configure(LenskitConfiguration config);
 
     long lastModified();
 }

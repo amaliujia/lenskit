@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -25,7 +25,7 @@ import org.grouplens.lenskit.data.event.Rating;
 import org.grouplens.lenskit.data.event.Ratings;
 import org.grouplens.lenskit.data.history.RatingVectorUserHistorySummarizer;
 import org.grouplens.lenskit.data.history.UserHistorySummarizer;
-import org.grouplens.lenskit.knn.item.model.ItemItemBuildContextFactory;
+import org.grouplens.lenskit.knn.item.model.ItemItemBuildContextProvider;
 import org.grouplens.lenskit.transform.normalize.DefaultUserVectorNormalizer;
 import org.junit.Test;
 
@@ -39,13 +39,13 @@ public class SlopeOneModelBuilderTest {
     public static final double EPSILON = 1.0e-6;
 
     private SlopeOneModel getModel(List<Rating> ratings) {
-        EventDAO dao = new EventCollectionDAO(ratings);
+        EventDAO dao = EventCollectionDAO.create(ratings);
         UserEventDAO udao = new PrefetchingUserEventDAO(dao);
         ItemDAO idao = new PrefetchingItemDAO(dao);
         UserHistorySummarizer summarizer = new RatingVectorUserHistorySummarizer();
-        ItemItemBuildContextFactory contextFactory = new ItemItemBuildContextFactory(
+        ItemItemBuildContextProvider contextFactory = new ItemItemBuildContextProvider(
                 udao, new DefaultUserVectorNormalizer(), summarizer);
-        SlopeOneModelBuilder provider = new SlopeOneModelBuilder(idao, contextFactory, 0);
+        SlopeOneModelBuilder provider = new SlopeOneModelBuilder(idao, contextFactory.get(), 0);
         return provider.get();
     }
 

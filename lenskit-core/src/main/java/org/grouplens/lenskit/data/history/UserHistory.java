@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,16 +20,14 @@
  */
 package org.grouplens.lenskit.data.history;
 
-import it.unimi.dsi.fastutil.longs.LongSet;
-
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-
-import javax.annotation.concurrent.ThreadSafe;
-
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import org.grouplens.lenskit.data.event.Event;
+
+import javax.annotation.concurrent.ThreadSafe;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Represents a user profile, associating an immutable list of events with a user. The

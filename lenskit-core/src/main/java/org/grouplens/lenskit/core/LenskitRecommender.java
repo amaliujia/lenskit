@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,8 +20,12 @@
  */
 package org.grouplens.lenskit.core;
 
-import org.grouplens.grapht.Injector;
+import org.grouplens.grapht.Component;
+import org.grouplens.grapht.Dependency;
+import org.grouplens.grapht.InjectionException;
+import org.grouplens.grapht.graph.DAGNode;
 import org.grouplens.lenskit.*;
+import org.grouplens.lenskit.inject.StaticInjector;
 
 import java.lang.annotation.Annotation;
 
@@ -42,12 +46,13 @@ public class LenskitRecommender implements Recommender {
     private final StaticInjector injector;
 
     /**
-     * Create a new LensKit recommender.
+     * Create a new LensKit recommender.  Most code does not need to call this constructor, but
+     * rather use {@link #build(LenskitConfiguration)} or a {@link LenskitRecommenderEngine}.
      *
-     * @param injector The injector housing this recommender's configuration.
+     * @param graph This recommender's configuration graph.
      */
-    public LenskitRecommender(StaticInjector injector) {
-        this.injector = injector;
+    public LenskitRecommender(DAGNode<Component,Dependency> graph) {
+        injector = new StaticInjector(graph);
     }
 
     /**
@@ -61,7 +66,11 @@ public class LenskitRecommender implements Recommender {
      * @return The instance of the specified component.
      */
     public <T> T get(Class<T> cls) {
-        return injector.getInstance(cls);
+        try {
+            return injector.getInstance(cls);
+        } catch (InjectionException e) {
+            throw new RuntimeException("error instantiating component", e);
+        }
     }
 
     /**
@@ -76,7 +85,30 @@ public class LenskitRecommender implements Recommender {
      * @return The instance of the specified component.
      */
     public <T> T get(Class<? extends Annotation> qual, Class<T> cls) {
-        return injector.getInstance(qual, cls);
+        try {
+            return injector.getInstance(qual, cls);
+        } catch (InjectionException e) {
+            throw new RuntimeException("error instantiating component", e);
+        }
+    }
+
+    /**
+     * Get a particular qualified component from the recommender session.  Generally you
+     * want to use one of the type-specific getters; this method only exists for
+     * specialized applications which need deep access to the recommender
+     * components.
+     *
+     * @param <T> The type of component to get.
+     * @param qual The qualifying annotation of the component class.
+     * @param cls The component class to get.
+     * @return The instance of the specified component.
+     */
+    public <T> T get(Annotation qual, Class<T> cls) {
+        try {
+            return injector.getInstance(qual, cls);
+        } catch (InjectionException e) {
+            throw new RuntimeException("error instantiating component", e);
+        }
     }
 
     @Override

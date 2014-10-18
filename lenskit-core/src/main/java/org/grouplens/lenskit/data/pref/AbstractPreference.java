@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,9 +20,6 @@
  */
 package org.grouplens.lenskit.data.pref;
 
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-
 /**
  * Helper class providing equality over preferences.
  *
@@ -32,25 +29,12 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 public abstract class AbstractPreference implements Preference {
     @Override
     public boolean equals(Object o) {
-        if (o instanceof Preference) {
-            Preference op = (Preference) o;
-            return new EqualsBuilder()
-                    .append(getUserId(), op.getUserId())
-                    .append(getItemId(), op.getItemId())
-                    .append(getValue(), op.getValue())
-                    .isEquals();
-        } else {
-            return false;
-        }
+        return o instanceof Preference && Preferences.equals(this, (Preference) o);
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder()
-                .append(getUserId())
-                .append(getItemId())
-                .append(getValue())
-                .toHashCode();
+        return Preferences.hashPreference(this);
     }
 
     @Override

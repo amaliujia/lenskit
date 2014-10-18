@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -21,19 +21,25 @@
 package org.grouplens.lenskit.basic;
 
 
-import com.google.common.collect.Iterables;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import com.google.common.collect.Lists;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.longs.LongSets;
+import org.apache.commons.lang3.tuple.Pair;
 import org.grouplens.lenskit.ItemRecommender;
 import org.grouplens.lenskit.ItemScorer;
+import org.grouplens.lenskit.collections.CollectionUtils;
 import org.grouplens.lenskit.collections.LongUtils;
 import org.grouplens.lenskit.data.dao.ItemDAO;
 import org.grouplens.lenskit.data.dao.UserEventDAO;
 import org.grouplens.lenskit.data.event.Event;
-import org.grouplens.lenskit.data.event.Rating;
 import org.grouplens.lenskit.data.history.UserHistory;
 import org.grouplens.lenskit.scored.ScoredId;
+import org.grouplens.lenskit.scored.ScoredIdBuilder;
+import org.grouplens.lenskit.scored.ScoredIdListBuilder;
+import org.grouplens.lenskit.scored.ScoredIds;
+import org.grouplens.lenskit.symbols.Symbol;
+import org.grouplens.lenskit.symbols.TypedSymbol;
 import org.grouplens.lenskit.util.ScoredItemAccumulator;
 import org.grouplens.lenskit.util.TopNScoredItemAccumulator;
 import org.grouplens.lenskit.vectors.SparseVector;
@@ -113,12 +119,44 @@ public class TopNItemRecommender extends AbstractItemRecommender {
             accum.put(pred.getKey(), v);
         }
 
-        return accum.finish();
+        List<ScoredId> results = accum.finish();
+        if (!scores.getChannelSymbols().isEmpty()) {
+            ScoredIdListBuilder builder = ScoredIds.newListBuilder(results.size());
+            List<Pair<Symbol,SparseVector>> cvs = Lists.newArrayList();
+            List<Pair<TypedSymbol<?>, Long2ObjectMap<?>>> channels = Lists.newArrayList();
+            for (Symbol sym: scores.getChannelVectorSymbols()) {
+                builder.addChannel(sym, Double.NaN);
+                cvs.add(Pair.of(sym, scores.getChannelVector(sym)));
+            }
+            for (TypedSymbol<?> sym: scores.getChannelSymbols()) {
+                if (!sym.getType().equals(Double.class)) {
+                    builder.addChannel(sym);
+                    channels.add((Pair) Pair.of(sym, scores.getChannel(sym)));
+                }
+            }
+            for (ScoredId id: CollectionUtils.fast(results)) {
+                ScoredIdBuilder copy = ScoredIds.copyBuilder(id);
+                for (Pair<Symbol,SparseVector> pair: cvs) {
+                    if (pair.getRight().containsKey(id.getId())) {
+                        copy.addChannel(pair.getLeft(), pair.getRight().get(id.getId()));
+                    }
+                }
+                for (Pair<TypedSymbol<?>, Long2ObjectMap<?>> pair: channels) {
+                    if (pair.getRight().containsKey(id.getId())) {
+                        copy.addChannel((TypedSymbol) pair.getLeft(), pair.getRight().get(id.getId()));
+                    }
+                }
+                builder.add(copy.build());
+            }
+            return builder.finish();
+        } else {
+            return results;
+        }
     }
 
     /**
      * Get the default exclude set for a user.  The base implementation gets
-     * all their rated items.
+     * all the items they have interacted with.
      *
      * @param user The user ID.
      * @return The set of items to exclude.
@@ -129,7 +167,7 @@ public class TopNItemRecommender extends AbstractItemRecommender {
 
     /**
      * Get the default exclude set for a user.  The base implementation returns
-     * all their rated items.
+     * all the items they have interacted with (from {@link UserHistory#itemSet()}).
      *
      * @param user The user history.
      * @return The set of items to exclude.
@@ -137,12 +175,9 @@ public class TopNItemRecommender extends AbstractItemRecommender {
     protected LongSet getDefaultExcludes(@Nullable UserHistory<? extends Event> user) {
         if (user == null) {
             return LongSets.EMPTY_SET;
+        } else {
+            return user.itemSet();
         }
-        LongSet excludes = new LongOpenHashSet();
-        for (Rating r : Iterables.filter(user, Rating.class)) {
-            excludes.add(r.getItemId());
-        }
-        return excludes;
     }
 
     /**

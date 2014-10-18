@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,10 +20,12 @@
  */
 package org.grouplens.lenskit.knn.item.model;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import com.google.common.base.Objects;
+import com.google.common.base.Stopwatch;
+import com.google.common.collect.Lists;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongSortedSet;
+import org.grouplens.lenskit.collections.LongKeyDomain;
 import org.grouplens.lenskit.core.Transient;
 import org.grouplens.lenskit.knn.item.ItemSimilarity;
 import org.grouplens.lenskit.scored.ScoredId;
@@ -33,7 +35,6 @@ import org.grouplens.lenskit.transform.normalize.ItemVectorNormalizer;
 import org.grouplens.lenskit.transform.truncate.VectorTruncator;
 import org.grouplens.lenskit.vectors.MutableSparseVector;
 import org.grouplens.lenskit.vectors.SparseVector;
-import org.grouplens.lenskit.vectors.VectorEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,44 +51,79 @@ public class NormalizingItemItemModelBuilder implements Provider<ItemItemModel> 
     private static final Logger logger = LoggerFactory.getLogger(NormalizingItemItemModelBuilder.class);
 
     private final ItemSimilarity similarity;
-    private final ItemItemBuildContextFactory contextFactory;
+    private final ItemItemBuildContext buildContext;
     private final ItemVectorNormalizer rowNormalizer;
     private final VectorTruncator truncator;
+    private final NeighborIterationStrategy iterationStrategy;
 
+    /**
+     * Construct a normalizing item-item model builder.
+     *
+     * @param sim     The item similarity function.
+     * @param context The item-item build context.
+     * @param rowNorm The normalizer for item neighborhood vectors.
+     * @param trunc   The truncator for truncating neighborhood vectors.  Bind this to the provider
+     *                {@link StandardVectorTruncatorProvider} to get the same threshold and model
+     *                size configuration behavior as {@link ItemItemModelBuilder}.
+     * @param iterStrat The neighbor iteration strategy.
+     */
     @Inject
-    public NormalizingItemItemModelBuilder(@Transient ItemSimilarity similarity,
-                                           @Transient ItemItemBuildContextFactory ctxFactory,
-                                           @Transient ItemVectorNormalizer rowNormalizer,
-                                           @Transient VectorTruncator truncator) {
-        this.similarity = similarity;
-        contextFactory = ctxFactory;
-        this.rowNormalizer = rowNormalizer;
-        this.truncator = truncator;
+    public NormalizingItemItemModelBuilder(@Transient ItemSimilarity sim,
+                                           @Transient ItemItemBuildContext context,
+                                           @Transient ItemVectorNormalizer rowNorm,
+                                           @Transient VectorTruncator trunc,
+                                           @Transient NeighborIterationStrategy iterStrat) {
+        similarity = sim;
+        buildContext = context;
+        rowNormalizer = rowNorm;
+        truncator = trunc;
+        iterationStrategy = iterStrat;
     }
 
 
+    @SuppressWarnings("deprecation")
     @Override
     public SimilarityMatrixModel get() {
         logger.debug("building item-item model");
 
-        ItemItemBuildContext context = contextFactory.buildContext();
-        MutableSparseVector currentRow = MutableSparseVector.create(context.getItems());
+        LongSortedSet itemUniverse = buildContext.getItems();
 
-        LongSortedSet itemUniverse = context.getItems();
-        Long2ObjectMap<List<ScoredId>> matrix =
-                new Long2ObjectOpenHashMap<List<ScoredId>>(itemUniverse.size());
+        final int nitems = itemUniverse.size();
 
-        LongIterator outer = context.getItems().iterator();
-        while (outer.hasNext()) {
-            final long rowItem = outer.nextLong();
-            final SparseVector vec1 = context.itemVector(rowItem);
-            for (VectorEntry e: currentRow.fast(VectorEntry.State.EITHER)) {
-                final long colItem = e.getKey();
-                final SparseVector vec2 = context.itemVector(colItem);
-                currentRow.set(e, similarity.similarity(rowItem, vec1, colItem, vec2));
+        LongKeyDomain itemDomain = LongKeyDomain.fromCollection(itemUniverse, true);
+        assert itemDomain.size() == itemDomain.domainSize();
+        assert itemDomain.domainSize() == nitems;
+        List<List<ScoredId>> matrix = Lists.newArrayListWithCapacity(itemDomain.domainSize());
+
+        // working space for accumulating each row (reuse between rows)
+        MutableSparseVector currentRow = MutableSparseVector.create(itemUniverse);
+        Stopwatch timer = Stopwatch.createStarted();
+
+        for (int i = 0; i < nitems; i++) {
+            assert matrix.size() == i;
+            final long rowItem = itemDomain.getKey(i);
+            final SparseVector vec1 = buildContext.itemVector(rowItem);
+
+            // Take advantage of sparsity if we can
+            LongIterator neighbors = iterationStrategy.neighborIterator(buildContext, rowItem, false);
+            currentRow.fill(0);
+
+            // Compute similarities and populate the vector
+            while (neighbors.hasNext()) {
+                final long colItem = neighbors.nextLong();
+                final SparseVector vec2 = buildContext.itemVector(colItem);
+                assert currentRow.containsKey(colItem);
+                currentRow.set(colItem, similarity.similarity(rowItem, vec1, colItem, vec2));
             }
+
+            // Remove the current item (it is not its own neighbor)
+            currentRow.unset(rowItem);
+
+            // Normalize and truncate the row
             MutableSparseVector normalized = rowNormalizer.normalize(rowItem, currentRow, null);
             truncator.truncate(normalized);
+
+            // Build up and save the row
             ScoredIdListBuilder bld = new ScoredIdListBuilder(normalized.size());
             // TODO Allow the symbols in use to be customized
             List<ScoredId> row = bld.addChannels(normalized.getChannelVectorSymbols())
@@ -95,9 +131,21 @@ public class NormalizingItemItemModelBuilder implements Provider<ItemItemModel> 
                                     .addAll(ScoredIds.collectionFromVector(normalized))
                                     .sort(ScoredIds.scoreOrder().reverse())
                                     .finish();
-            matrix.put(rowItem, row);
+            matrix.add(row);
         }
 
-        return new SimilarityMatrixModel(itemUniverse, matrix);
+        timer.stop();
+        logger.info("built model for {} items in {}", nitems, timer);
+
+        return new SimilarityMatrixModel(itemDomain, matrix);
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(NormalizingItemItemModelBuilder.class)
+                      .add("similarity", similarity)
+                      .add("normalizer", rowNormalizer)
+                      .add("truncator", truncator)
+                      .toString();
     }
 }

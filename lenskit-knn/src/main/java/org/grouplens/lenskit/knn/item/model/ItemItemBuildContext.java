@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,13 +20,19 @@
  */
 package org.grouplens.lenskit.knn.item.model;
 
-import it.unimi.dsi.fastutil.longs.*;
+import com.google.common.base.Preconditions;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.longs.LongSortedSet;
+import it.unimi.dsi.fastutil.longs.LongSortedSets;
+import org.grouplens.grapht.annotation.DefaultProvider;
+import org.grouplens.lenskit.collections.LongKeyDomain;
+import org.grouplens.lenskit.core.Shareable;
 import org.grouplens.lenskit.transform.normalize.VectorNormalizer;
 import org.grouplens.lenskit.vectors.SparseVector;
-import org.grouplens.lenskit.vectors.VectorEntry;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.io.Serializable;
 import java.util.Iterator;
 
 /**
@@ -34,16 +40,23 @@ import java.util.Iterator;
  * provides access to item vectors and the item universe for use in  building
  * up the model in the accumulator.
  *
+ * <p>This is shareable to make it more usable in the evaluator.  Typical built models
+ * will not include it, and any dependencies on it should be {@link org.grouplens.lenskit.core.Transient}.</p>
+ *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  * @see ItemItemModelBuilder
  */
-public class ItemItemBuildContext {
+@DefaultProvider(ItemItemBuildContextProvider.class)
+@Shareable
+public class ItemItemBuildContext implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     @Nonnull
     private
-    LongSortedSet items;
+    LongKeyDomain items;
     @Nonnull
     private
-    Long2ObjectMap<SparseVector> itemVectors;
+    SparseVector[] itemVectors;
 
     @Nonnull
     private Long2ObjectMap<LongSortedSet> userItems;
@@ -55,8 +68,8 @@ public class ItemItemBuildContext {
      * @param vectors  Map of item IDs to item rating vectors.
      * @param userItems Map of user IDs to candidate items
      */
-    ItemItemBuildContext(@Nonnull LongSortedSet universe,
-                         @Nonnull Long2ObjectMap<SparseVector> vectors,
+    ItemItemBuildContext(@Nonnull LongKeyDomain universe,
+                         @Nonnull SparseVector[] vectors,
                          @Nonnull Long2ObjectMap<LongSortedSet> userItems) {
         this.userItems = userItems;
         items = universe;
@@ -70,7 +83,7 @@ public class ItemItemBuildContext {
      */
     @Nonnull
     public LongSortedSet getItems() {
-        return items;
+        return items.activeSetView();
     }
 
     /**
@@ -83,28 +96,24 @@ public class ItemItemBuildContext {
      */
     @Nonnull
     public SparseVector itemVector(long item) {
-        SparseVector v = itemVectors.get(item);
-        if (v == null) {
-            throw new IllegalArgumentException("unknown item");
-        } else {
-            return v;
-        }
+        int idx = items.getIndex(item);
+        Preconditions.checkArgument(idx >= 0, "unknown item");
+        return itemVectors[idx];
     }
 
     /**
-     * Get the union of all items rated by the provided set of users.
-     *
-     * @param users The users to accumulate
-     * @return The item candidates for {@code item}.
+     * Get the items rated by a particular user.
+     * 
+     * @param user The user to query for.
+     * @return The items rated by {@code user}.
      */
     @Nonnull
-    public LongSortedSet getUserItems(LongSet users) {
-        LongSortedSet union = new LongRBTreeSet();
-        LongIterator it = users.iterator();
-        while (it.hasNext()) {
-            union.addAll(userItems.get(it.nextLong()));
+    public LongSortedSet getUserItems(long user) {
+        LongSortedSet items = userItems.get(user);
+        if (items == null) {
+            items = LongSortedSets.EMPTY_SET;
         }
-        return union;
+        return items;
     }
 
     /**
@@ -112,7 +121,9 @@ public class ItemItemBuildContext {
      *
      * @return An Iterable over ItemVecPairs, objects
      *         pairing item ids and their corresponding vectors.
+     * @deprecated This will go away in LensKit 3.0.
      */
+    @Deprecated
     public Iterable<ItemVecPair> getItemPairs() {
         return new Iterable<ItemVecPair>() {
             @Override
@@ -128,9 +139,11 @@ public class ItemItemBuildContext {
      * @return An Iterator over ItemVecPairs, an object
      *         offering public access to the item ids and their
      *         corresponding vectors.
+     * @deprecated This will go away in LensKit 3.0.
      */
+    @Deprecated
     public Iterator<ItemVecPair> getItemPairIterator() {
-        return new FastIteratorImpl(items, items);
+        return new FastIteratorImpl(items.activeSetView(), items.activeSetView());
     }
 
     /**

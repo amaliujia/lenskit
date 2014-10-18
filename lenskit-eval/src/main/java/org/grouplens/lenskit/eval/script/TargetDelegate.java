@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -25,6 +25,7 @@ import groovy.lang.DelegatesTo;
 import groovy.util.AntBuilder;
 import org.apache.tools.ant.Target;
 import org.apache.tools.ant.Task;
+import org.grouplens.lenskit.eval.EvalAntTask;
 
 /**
  * Delegate to build a target.
@@ -53,8 +54,9 @@ public class TargetDelegate {
 
     }
 
-    public void perform(Closure<?> cl) {
-        GroovyActionTask task = new GroovyActionTask(cl);
+    public <K> void perform(Closure<K> cl) {
+        GroovyActionTask<K> evalTask = new GroovyActionTask(cl);
+        EvalAntTask task = new EvalAntTask(evalTask);
         task.setProject(target.getProject());
         target.addTask(task);
     }

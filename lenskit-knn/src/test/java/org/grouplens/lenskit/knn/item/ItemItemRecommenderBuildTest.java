@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -34,6 +34,7 @@ import org.grouplens.lenskit.data.dao.EventCollectionDAO;
 import org.grouplens.lenskit.data.dao.EventDAO;
 import org.grouplens.lenskit.data.event.Rating;
 import org.grouplens.lenskit.data.event.Ratings;
+import org.grouplens.lenskit.knn.item.model.ItemItemBuildContext;
 import org.grouplens.lenskit.knn.item.model.ItemItemModel;
 import org.junit.Before;
 import org.junit.Test;
@@ -84,6 +85,13 @@ public class ItemItemRecommenderBuildTest {
                    instanceOf(TopNGlobalItemRecommender.class));
         assertThat(rec.getGlobalItemScorer(),
                    instanceOf(ItemItemGlobalScorer.class));
+    }
+
+    @Test
+    public void testContextRemoved() {
+        LenskitRecommender rec = engine.createRecommender();
+        assertThat(rec.get(ItemItemBuildContext.class),
+                   nullValue());
     }
 
     @Test

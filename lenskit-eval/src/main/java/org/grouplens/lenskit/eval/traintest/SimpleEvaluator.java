@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -25,14 +25,14 @@ import org.grouplens.lenskit.data.pref.PreferenceDomain;
 import org.grouplens.lenskit.eval.EvalConfig;
 import org.grouplens.lenskit.eval.EvalProject;
 import org.grouplens.lenskit.eval.TaskExecutionException;
-import org.grouplens.lenskit.eval.algorithm.LenskitAlgorithmInstance;
-import org.grouplens.lenskit.eval.algorithm.LenskitAlgorithmInstanceBuilder;
+import org.grouplens.lenskit.eval.algorithm.AlgorithmInstance;
+import org.grouplens.lenskit.eval.algorithm.AlgorithmInstanceBuilder;
 import org.grouplens.lenskit.eval.data.DataSource;
 import org.grouplens.lenskit.eval.data.GenericDataSource;
 import org.grouplens.lenskit.eval.data.crossfold.CrossfoldTask;
 import org.grouplens.lenskit.eval.data.traintest.GenericTTDataSet;
 import org.grouplens.lenskit.eval.data.traintest.TTDataSet;
-import org.grouplens.lenskit.eval.metrics.TestUserMetric;
+import org.grouplens.lenskit.eval.metrics.Metric;
 import org.grouplens.lenskit.util.table.Table;
 
 import java.io.File;
@@ -56,7 +56,7 @@ public class SimpleEvaluator implements Callable<Table> {
      * @param props Properties for the eval configuration.
      */
     public SimpleEvaluator(Properties props) {
-        project = new EvalProject(props);
+        project = new EvalProject(props, null);
         result = new TrainTestEvalTask("simple-eval");
         result.setProject(project);
         result.setOutput((File) null);
@@ -67,24 +67,24 @@ public class SimpleEvaluator implements Callable<Table> {
     }
 
     /**
-     * Adds an algorithm to the {@code TrainTestEvalCommand} being built.
+     * Adds an algorithmInfo to the {@code TrainTestEvalCommand} being built.
      *
      * If any exception is thrown while the command is called it is rethrown as a runtime error.
-     * @param algo The algorithm added to the {@code TrainTestEvalCommand}
+     * @param algo The algorithmInfo added to the {@code TrainTestEvalCommand}
      * @return Itself to allow  chaining
      */
-    public SimpleEvaluator addAlgorithm(LenskitAlgorithmInstance algo){
+    public SimpleEvaluator addAlgorithm(AlgorithmInstance algo){
         result.addAlgorithm(algo);
         return this;
     }
 
     /**
-     * Adds a fully configured algorithm command to the {@code TrainTestEvalCommand} being built.
+     * Adds a fully configured algorithmInfo command to the {@code TrainTestEvalCommand} being built.
      *
-     * @param algo The algorithm added to the {@code TrainTestEvalCommand}
+     * @param algo The algorithmInfo added to the {@code TrainTestEvalCommand}
      * @return Itself to allow  chaining
      */
-    public SimpleEvaluator addAlgorithm(LenskitAlgorithmInstanceBuilder algo){
+    public SimpleEvaluator addAlgorithm(AlgorithmInstanceBuilder algo){
         result.addAlgorithm(algo.build());
         return this;
     }
@@ -216,13 +216,30 @@ public class SimpleEvaluator implements Callable<Table> {
                                           .build());
         return this;
     }
+
     /**
      * Adds a completed metric to the {@code TrainTestEvalCommand}
      * @param metric The metric to be added.
      * @return Itself for  method chaining.
      */
-    public SimpleEvaluator addMetric(TestUserMetric metric) {
+    public SimpleEvaluator addMetric(Metric<?> metric) {
         result.addMetric(metric);
+        return this;
+    }
+
+    /**
+     * Adds a completed metric to the {@code TrainTestEvalCommand}
+     * @param metric The metric to be added.
+     * @return Itself for  method chaining.
+     */
+    public SimpleEvaluator addMetric(Class<? extends Metric> metric) {
+        try {
+            result.addMetric(metric);
+        } catch (IllegalAccessException e) {
+            throw new IllegalArgumentException(e);
+        } catch (InstantiationException e) {
+            throw new IllegalArgumentException(e);
+        }
         return this;
     }
 
@@ -309,7 +326,11 @@ public class SimpleEvaluator implements Callable<Table> {
     @Override
     public Table call() throws TaskExecutionException {
         result.setProject(project);
-        return result.perform();
+        try {
+            return result.perform();
+        } catch (InterruptedException e) {
+            throw new TaskExecutionException("execution interrupted", e);
+        }
     }
 }
 

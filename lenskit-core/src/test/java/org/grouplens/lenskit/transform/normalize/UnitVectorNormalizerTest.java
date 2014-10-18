@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -23,6 +23,7 @@ package org.grouplens.lenskit.transform.normalize;
 import it.unimi.dsi.fastutil.longs.LongSortedSet;
 import org.grouplens.lenskit.collections.LongUtils;
 import org.grouplens.lenskit.vectors.MutableSparseVector;
+import org.junit.Before;
 import org.junit.Test;
 
 import static java.lang.Math.sqrt;
@@ -33,7 +34,12 @@ import static org.junit.Assert.assertThat;
 
 public class UnitVectorNormalizerTest {
     UnitVectorNormalizer norm = new UnitVectorNormalizer();
-    LongSortedSet keySet = LongUtils.packedSet(1,3,4,6);
+    LongSortedSet keySet;
+
+    @Before
+    public void createKeySet() {
+        keySet = LongUtils.packedSet(1, 3, 4, 6);
+    }
 
     @Test
     public void testScale() {

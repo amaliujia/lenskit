@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -21,7 +21,9 @@
 package org.grouplens.lenskit.eval.data.traintest;
 
 import java.util.Map;
+import java.util.UUID;
 
+import org.grouplens.lenskit.core.LenskitConfiguration;
 import org.grouplens.lenskit.data.dao.EventDAO;
 import org.grouplens.lenskit.data.pref.PreferenceDomain;
 import org.grouplens.lenskit.eval.data.DataSource;
@@ -45,27 +47,21 @@ public interface TTDataSet {
     String getName();
 
     /**
-     * Get the preference domain for this data set.
-     *
-     * @return The data set preference domain.
-     */
-    @Nullable
-    PreferenceDomain getPreferenceDomain();
-
-    /**
      * Get the data set attributes (used for identification in output).
      *
-     * @return A key -> value map of the attributes used to identify this data
+     * @return A key &rarr; value map of the attributes used to identify this data
      *         set. For example, a crossfold data set may include the source
      *         name and fold number.
      */
     Map<String, Object> getAttributes();
 
     /**
-     * Release the data set. Called when the train-test job group using this
-     * data set is finished.
+     * Get the isolation group ID for this data set.  Data sets in the same group will be allowed to
+     * run in parallel.  This is used to implement data set isolation.
+     *
+     * @return The group ID for this data set.
      */
-    void release();
+    UUID getIsolationGroup();
 
     /**
      * Get the training data.
@@ -114,4 +110,12 @@ public interface TTDataSet {
      * @return The last modification time, in milliseconds since the epoch.
      */
     long lastModified();
+
+    /**
+     * Configure LensKit to have the training data from this data source.
+     *
+     * @param config A configuration in which the training data for this data set should be
+     *               configured.
+     */
+    void configure(LenskitConfiguration config);
 }

@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -30,7 +30,7 @@ import groovy.lang.MissingPropertyException;
 import org.apache.commons.lang3.builder.Builder;
 import org.codehaus.groovy.control.CompilerConfiguration;
 import org.codehaus.groovy.control.customizers.ImportCustomizer;
-import org.grouplens.lenskit.eval.ClassDirectory;
+import org.grouplens.lenskit.util.ClassDirectory;
 import org.grouplens.lenskit.eval.EvalProject;
 import org.grouplens.lenskit.eval.EvalTask;
 import org.grouplens.lenskit.eval.TaskExecutionException;
@@ -49,7 +49,7 @@ import java.util.*;
 
 /**
  * Load and process configuration files. Also provides helper methods used by the
- * configuration scripts to locate & invoke methods.
+ * configuration scripts to locate &amp; invoke methods.
  *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  * @since 0.10
@@ -115,7 +115,7 @@ public class EvalScriptEngine {
      * @return The eval project.
      */
     public EvalProject createProject() {
-        return new EvalProject(properties);
+        return new EvalProject(properties, classLoader);
     }
 
     //region Loading and running scripts
@@ -192,7 +192,7 @@ public class EvalScriptEngine {
      */
     public EvalProject loadProject(File file) throws TaskExecutionException, IOException {
         logger.debug("loading script file {}", file);
-        EvalProject project = new EvalProject(properties);
+        EvalProject project = new EvalProject(properties, classLoader);
         runScript(file, project);
         return project;
     }

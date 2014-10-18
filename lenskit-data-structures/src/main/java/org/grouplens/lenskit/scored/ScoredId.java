@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -35,7 +35,7 @@ import java.util.Set;
  * A {@code ScoredId} object is intended to be immutable.  Scored IDs can be created by using the
  * {@linkplain ScoredIds#newBuilder() builder} or accumulated in a {@link PackedScoredIdList}.
  * <p>
- * In addition to the score, a scored id associates <emph>channels</emph> with the id.  Channels are
+ * In addition to the score, a scored id associates <em>channels</em> with the id.  Channels are
  * identified by {@link TypedSymbol}s.  As an optimization, channels of type {@code double} can be
  * accessed in unboxed fashion using an untyped {@link Symbol}.
  * </p>

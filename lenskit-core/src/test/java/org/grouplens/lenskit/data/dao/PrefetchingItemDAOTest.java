@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -43,7 +43,7 @@ public class PrefetchingItemDAOTest {
                 Ratings.make(2, 4, 3),
                 Ratings.make(2, 3, 2)
         );
-        EventDAO dao = new EventCollectionDAO(ratings);
+        EventDAO dao = EventCollectionDAO.create(ratings);
         ItemDAO idao = new PrefetchingItemDAO(dao);
         assertThat(idao.getItemIds(), hasSize(3));
         assertThat(idao.getItemIds(), containsInAnyOrder(2L, 3L, 4L));

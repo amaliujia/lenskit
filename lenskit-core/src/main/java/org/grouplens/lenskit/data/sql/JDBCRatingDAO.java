@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,28 +20,35 @@
  */
 package org.grouplens.lenskit.data.sql;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.*;
-
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheBuilderSpec;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import org.grouplens.lenskit.cursors.Cursor;
 import org.grouplens.lenskit.cursors.Cursors;
-import org.grouplens.lenskit.data.event.Event;
-import org.grouplens.lenskit.data.history.UserHistory;
 import org.grouplens.lenskit.data.dao.*;
+import org.grouplens.lenskit.data.event.Event;
 import org.grouplens.lenskit.data.event.Rating;
 import org.grouplens.lenskit.data.history.History;
+import org.grouplens.lenskit.data.history.ItemEventCollection;
+import org.grouplens.lenskit.data.history.UserHistory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.WillCloseWhenClosed;
-import javax.inject.Inject;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Rating DAO backed by a JDBC connection.  This DAO can only store rating data;
@@ -75,45 +82,62 @@ public class JDBCRatingDAO implements EventDAO, UserEventDAO, ItemEventDAO, User
     private final SQLStatementFactory statementFactory;
 
     private final CachedPreparedStatement userStatement;
-    private final CachedPreparedStatement userCountStatement;
     private final CachedPreparedStatement itemStatement;
-    private final CachedPreparedStatement itemCountStatement;
     private final Map<SortOrder,CachedPreparedStatement> eventStatements =
             new EnumMap<SortOrder,CachedPreparedStatement>(SortOrder.class);
     private final CachedPreparedStatement userEventStatement;
     private final CachedPreparedStatement itemEventStatement;
     private final CachedPreparedStatement itemUserStatement;
+    private final Cache<QueryKey, Object> queryCache;
 
     /**
-     * Create a new JDBC rating DAO.
+     * Create a new JDBC DAO builder.
+     * @return The new builder.
+     */
+    public static JDBCRatingDAOBuilder newBuilder() {
+        return new JDBCRatingDAOBuilder();
+    }
+
+    /**
+     * Create a new JDBC rating DAO.  The resulting DAO will be uncached.
      *
      * @param dbc  The database connection. The connection will be closed
      *             when the DAO is closed.
      * @param sfac The statement factory.
+     * @deprecated Use {@link #newBuilder()}.
      */
-    @Inject
+    @Deprecated
     public JDBCRatingDAO(@WillCloseWhenClosed Connection dbc, SQLStatementFactory sfac) {
         this(dbc, sfac, true);
     }
 
     /**
-     * Create a new JDBC rating DAO.
+     * Create a new JDBC rating DAO.  The resulting DAO will be uncached.
      *
      * @param dbc   The database connection.
      * @param sfac  The statement factory.
      * @param close Whether to close the database connection when the DAO is closed.
+     * @deprecated Use {@link #newBuilder()}.
      */
+    @Deprecated
     public JDBCRatingDAO(Connection dbc, SQLStatementFactory sfac, boolean close) {
+        this(dbc, sfac, close,
+             CacheBuilder.from(CacheBuilderSpec.disableCaching()).<QueryKey, Object>build());
+    }
+
+    JDBCRatingDAO(Connection dbc, SQLStatementFactory factory, boolean close,
+                  Cache<QueryKey, Object> cache) {
         connection = dbc;
         closeConnection = close;
-        statementFactory = sfac;
+        statementFactory = factory;
+
+        queryCache = cache;
+
         userStatement = new CachedPreparedStatement(dbc, statementFactory.prepareUsers());
-        userCountStatement = new CachedPreparedStatement(dbc, statementFactory.prepareUserCount());
         itemStatement = new CachedPreparedStatement(dbc, statementFactory.prepareItems());
-        itemCountStatement = new CachedPreparedStatement(dbc, statementFactory.prepareItemCount());
         for (SortOrder order : SortOrder.values()) {
             eventStatements.put(order, new CachedPreparedStatement(dbc,
-                statementFactory.prepareEvents(order)));
+                                                                   statementFactory.prepareEvents(order)));
         }
         userEventStatement = new CachedPreparedStatement(dbc, statementFactory.prepareUserEvents());
         itemEventStatement = new CachedPreparedStatement(dbc, statementFactory.prepareItemEvents());
@@ -137,9 +161,7 @@ public class JDBCRatingDAO implements EventDAO, UserEventDAO, ItemEventDAO, User
         boolean failed = false;
         try {
             failed = failed || !closeStatement(userStatement);
-            failed = failed || !closeStatement(userCountStatement);
             failed = failed || !closeStatement(itemStatement);
-            failed = failed || !closeStatement(itemCountStatement);
             for (CachedPreparedStatement s : eventStatements.values()) {
                 failed = failed || !closeStatement(s);
             }
@@ -172,18 +194,28 @@ public class JDBCRatingDAO implements EventDAO, UserEventDAO, ItemEventDAO, User
     @Override
     public LongSet getUserIds() {
         try {
-            return getIdSet(userStatement.call());
-        } catch (SQLException e) {
-            throw new DatabaseAccessException(e);
+            return (LongSet) queryCache.get(QueryKey.userList(), new Callable<Object>() {
+                @Override
+                public Object call() throws SQLException {
+                    return getIdSet(userStatement.call());
+                }
+            });
+        } catch (ExecutionException e) {
+            throw new DatabaseAccessException("Error getting user list", e.getCause());
         }
     }
 
     @Override
     public LongSet getItemIds() {
         try {
-            return getIdSet(itemStatement.call());
-        } catch (SQLException e) {
-            throw new DatabaseAccessException(e);
+            return (LongSet) queryCache.get(QueryKey.itemList(), new Callable<Object>() {
+                @Override
+                public Object call() throws SQLException {
+                    return getIdSet(itemStatement.call());
+                }
+            });
+        } catch (ExecutionException e) {
+            throw new DatabaseAccessException("Error getting item list", e.getCause());
         }
     }
 
@@ -212,65 +244,88 @@ public class JDBCRatingDAO implements EventDAO, UserEventDAO, ItemEventDAO, User
         }
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public UserHistory<Event> getEventsForUser(long userId) {
-        // FIXME Cache this
+    public UserHistory<Event> getEventsForUser(final long userId) {
+        List<Rating> cached;
         try {
-            PreparedStatement s = userEventStatement.call();
-            s.setLong(1, userId);
-            Cursor<Rating> ratings = new ResultSetRatingCursor(s);
-            try {
-                List<Event> events = ImmutableList.<Event>copyOf(ratings);
-                if (events.isEmpty()) {
-                    return null;
-                } else {
-                    return History.forUser(userId, events);
+            cached = (List) queryCache.get(QueryKey.user(userId), new Callable<List<Rating>>() {
+                @Override
+                public List<Rating> call() throws Exception {
+                    PreparedStatement s = userEventStatement.call();
+                    s.setLong(1, userId);
+                    Cursor<Rating> ratings = new ResultSetRatingCursor(s);
+                    try {
+                        return ImmutableList.copyOf(ratings);
+                    } finally {
+                        ratings.close();
+                    }
                 }
-            } finally {
-                ratings.close();
-            }
-        } catch (SQLException e) {
-            throw new DatabaseAccessException(e);
+            });
+        } catch (ExecutionException e) {
+            throw new DataAccessException("error fetching user " + userId, e.getCause());
+        }
+        if (cached.isEmpty()) {
+            return null;
+        } else {
+            return History.<Event>forUser(userId, cached);
         }
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public <E extends Event> UserHistory<E> getEventsForUser(long uid, Class<E> type) {
-        if (type.isAssignableFrom(Rating.class)) {
-            return (UserHistory<E>) getEventsForUser(uid);
+        UserHistory<Event> history = getEventsForUser(uid);
+        if (history != null) {
+            if (type.isAssignableFrom(Rating.class)) {
+                return (UserHistory<E>) history;
+            } else {
+                return History.forUser(uid);
+            }
         } else {
             return null;
         }
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public List<Event> getEventsForItem(long itemId) {
-        // FIXME Cache this
+    public List<Event> getEventsForItem(final long itemId) {
+        List<Rating> events;
         try {
-            PreparedStatement s = itemEventStatement.call();
-            s.setLong(1, itemId);
-            Cursor<Rating> ratings = new ResultSetRatingCursor(s);
-            try {
-                List<Event> events = ImmutableList.<Event>copyOf(ratings);
-                if (events.isEmpty()) {
-                    return null;
-                } else {
-                    return events;
+            events = (List) queryCache.get(QueryKey.item(itemId), new Callable<List<Rating>>() {
+                @Override
+                public List<Rating> call() throws Exception {
+                    PreparedStatement s = itemEventStatement.call();
+                    s.setLong(1, itemId);
+                    Cursor<Rating> ratings = new ResultSetRatingCursor(s);
+                    try {
+                        return ImmutableList.copyOf(ratings);
+                    } finally {
+                        ratings.close();
+                    }
                 }
-            } finally {
-                ratings.close();
-            }
-        } catch (SQLException e) {
-            throw new DatabaseAccessException(e);
+            });
+        } catch (ExecutionException e) {
+            throw new DatabaseAccessException("error fetching item " + itemId, e.getCause());
+        }
+        if (events.isEmpty()) {
+            return null;
+        } else {
+            // this copy is near-free, but type-safe
+            return ImmutableList.<Event>copyOf(events);
         }
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public <E extends Event> List<E> getEventsForItem(long iid, Class<E> type) {
-        if (type.isAssignableFrom(Rating.class)) {
-            return (List<E>) getEventsForItem(iid);
+        List<Event> events = getEventsForItem(iid);
+        if (events != null) {
+            if (type.isAssignableFrom(Rating.class)) {
+                return (List<E>) events;
+            } else {
+                return Collections.emptyList();
+            }
         } else {
             return null;
         }
@@ -278,7 +333,7 @@ public class JDBCRatingDAO implements EventDAO, UserEventDAO, ItemEventDAO, User
 
     @Override
     public LongSet getUsersForItem(long item) {
-        PreparedStatement s = null;
+        PreparedStatement s;
         try {
             s = itemUserStatement.call();
             s.setLong(1, item);
@@ -290,6 +345,22 @@ public class JDBCRatingDAO implements EventDAO, UserEventDAO, ItemEventDAO, User
 
     @Override
     public Cursor<UserHistory<Event>> streamEventsByUser() {
-        return new UserHistoryCursor<Event>(streamEvents(Event.class, SortOrder.USER));
+        return streamEventsByUser(Event.class);
     }
+
+    @Override
+    public <E extends Event> Cursor<UserHistory<E>> streamEventsByUser(Class<E> type) {
+        return new UserHistoryCursor<E>(streamEvents(type, SortOrder.USER));
+    }
+
+    @Override
+    public Cursor<ItemEventCollection<Event>> streamEventsByItem() {
+        return streamEventsByItem(Event.class);
+    }
+
+    @Override
+    public <E extends Event> Cursor<ItemEventCollection<E>> streamEventsByItem(Class<E> type) {
+        return new ItemCollectionCursor<E>(streamEvents(type, SortOrder.USER));
+    }
+
 }

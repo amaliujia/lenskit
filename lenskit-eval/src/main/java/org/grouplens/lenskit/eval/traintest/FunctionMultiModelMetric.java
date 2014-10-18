@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -24,59 +24,42 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import org.grouplens.lenskit.Recommender;
-import org.grouplens.lenskit.eval.algorithm.AlgorithmInstance;
+import org.grouplens.lenskit.eval.Attributed;
 import org.grouplens.lenskit.eval.data.traintest.TTDataSet;
+import org.grouplens.lenskit.eval.metrics.Metric;
 import org.grouplens.lenskit.util.table.TableLayoutBuilder;
 import org.grouplens.lenskit.util.table.writer.CSVWriter;
 import org.grouplens.lenskit.util.table.writer.TableWriter;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * Model metric backed by an arbitrary function that returns multiple rows per algorithm.
+ * Model metric backed by an arbitrary function that returns multiple rows per algorithmInfo.
  *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  * @since 1.1
  */
-public class FunctionMultiModelMetric implements ModelMetric {
+public class FunctionMultiModelMetric implements Metric<Void> {
     private final File outputFile;
     private final List<String> columnHeaders;
     private final Function<Recommender, List<List<Object>>> function;
     private TableWriter writer;
-    private TrainTestEvalTask currentEval;
+    private ExperimentOutputLayout evalLayout;
 
     public FunctionMultiModelMetric(File file, List<String> columns,
-                                    Function<Recommender, List<List<Object>>> func) {
+                                    Function<Recommender, List<List<Object>>> func,
+                                    ExperimentOutputLayout layout) {
         outputFile = file;
         columnHeaders = Lists.newArrayList(columns);
         function = func;
-    }
+        evalLayout = layout;
 
-    @Override
-    public List<String> getColumnLabels() {
-        return Collections.emptyList();
-    }
-
-    @Override
-    public List<Object> measureAlgorithm(AlgorithmInstance instance, TTDataSet data, Recommender recommender) {
-        Preconditions.checkState(currentEval != null, "evaluation not in progress");
-        TableWriter w = currentEval.prefixTable(writer, instance, data);
-        for (List<Object> row: function.apply(recommender)) {
-            try {
-                w.writeRow(row.toArray());
-            } catch (IOException e) {
-                throw new RuntimeException("error writing row", e);
-            }
-        }
-        return Collections.emptyList();
-    }
-
-    @Override
-    public void startEvaluation(TrainTestEvalTask eval) {
-        TableLayoutBuilder builder = TableLayoutBuilder.copy(eval.getMasterLayout());
+        TableLayoutBuilder builder = TableLayoutBuilder.copy(evalLayout.getCommonLayout());
         for (String col: columnHeaders) {
             builder.addColumn(col);
         }
@@ -85,16 +68,75 @@ public class FunctionMultiModelMetric implements ModelMetric {
         } catch (IOException e) {
             throw new RuntimeException("error opening output file", e);
         }
-        currentEval = eval;
     }
 
     @Override
-    public void finishEvaluation() {
-        currentEval = null;
-        try {
-            writer.close();
-        } catch (IOException e) {
-            throw new RuntimeException("error closing output file", e);
+    public List<String> getColumnLabels() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<String> getUserColumnLabels() {
+        return Collections.emptyList();
+    }
+
+    @Nullable
+    @Override
+    public Void createContext(Attributed algorithm, TTDataSet dataSet, Recommender recommender) {
+        Preconditions.checkState(evalLayout != null, "evaluation not in progress");
+        TableWriter w = evalLayout.prefixTable(writer, algorithm, dataSet);
+        for (List<Object> row: function.apply(recommender)) {
+            try {
+                w.writeRow(row.toArray());
+            } catch (IOException e) {
+                throw new RuntimeException("error writing row", e);
+            }
+        }
+        return null;
+    }
+
+    @Nonnull
+    @Override
+    public List<Object> measureUser(TestUser user, Void context) {
+        return Collections.emptyList();
+    }
+
+    @Nonnull
+    @Override
+    public List<Object> getResults(Void context) {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public void close() throws IOException {
+        writer.close();
+    }
+
+    public static class Factory extends MetricFactory<Void> {
+        private final File outputFile;
+        private final List<String> columns;
+        private final Function<Recommender, List<List<Object>>> function;
+
+        public Factory(File file, List<String> cols, Function<Recommender, List<List<Object>>> func) {
+            outputFile = file;
+            columns = cols;
+            function = func;
+        }
+
+        @Override
+        public Metric<Void> createMetric(TrainTestEvalTask task) {
+            return new FunctionMultiModelMetric(outputFile, columns, function,
+                                                task.getOutputLayout());
+        }
+
+        @Override
+        public List<String> getColumnLabels() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<String> getUserColumnLabels() {
+            return Collections.emptyList();
         }
     }
 }

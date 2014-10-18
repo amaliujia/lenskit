@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -28,8 +28,9 @@ import java.util.Arrays;
  * create one using {@link #create(double[])} or {@link #immutable()}.
  *
  * @since 1.3
- * @compat
+ * @deprecated Use vectorz instead.
  */
+@Deprecated
 @Immutable
 public final class ImmutableVec extends Vec {
     private static final long serialVersionUID = 1L;
@@ -73,17 +74,19 @@ public final class ImmutableVec extends Vec {
 
     @Override
     public double sum() {
-        if (sum == null) {
-            sum = super.sum();
+        Double s = sum;
+        if (s == null) {
+            sum = s = super.sum();
         }
-        return sum;
+        return s;
     }
 
     @Override
     public double norm() {
-        if (norm == null) {
-            norm = super.norm();
+        Double n = norm;
+        if (n == null) {
+            norm = n = super.norm();
         }
-        return norm;
+        return n;
     }
 }

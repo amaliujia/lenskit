@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -184,7 +184,7 @@ public final class PreferenceDomain implements Serializable {
 
     /**
      * Parse a preference domain from a string specification.
-     * <p/>
+     * <p>
      * Continuous preference domains are specified as {@code [min, max]}; discrete domains
      * as {@code min:max[/prec/}.  For example, a 0.5-5.0 half-star rating scale is represented
      * as {@code [0.5, 5.0]/0.5}.

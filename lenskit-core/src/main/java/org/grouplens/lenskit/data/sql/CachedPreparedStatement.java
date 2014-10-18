@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,6 +20,9 @@
  */
 package org.grouplens.lenskit.data.sql;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.sql.Connection;
@@ -33,6 +36,8 @@ import java.util.concurrent.Callable;
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
 public class CachedPreparedStatement implements Callable<PreparedStatement>, Closeable {
+    private static final Logger logger = LoggerFactory.getLogger(CachedPreparedStatement.class);
+
     private PreparedStatement cache = null;
     private final String sql;
     private final Connection dbc;
@@ -55,6 +60,7 @@ public class CachedPreparedStatement implements Callable<PreparedStatement>, Clo
     @Override
     public PreparedStatement call() throws SQLException {
         if (cache == null) {
+            logger.debug("preparing statement {} (on {})", sql, dbc);
             cache = dbc.prepareStatement(sql);
         }
         return cache;

@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,6 +20,7 @@
  */
 package org.grouplens.lenskit.data.dao;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -31,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.WillClose;
+
 import java.util.*;
 
 import static org.grouplens.lenskit.collections.CollectionUtils.fast;
@@ -129,4 +131,11 @@ public class EventCollectionDAO implements EventDAO {
         }
     }
 
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                      .add("size", events.size())
+                      .add("types", types)
+                      .toString();
+    }
 }

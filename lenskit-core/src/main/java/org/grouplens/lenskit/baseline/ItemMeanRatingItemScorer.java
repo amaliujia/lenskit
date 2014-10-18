@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -84,6 +84,7 @@ public class ItemMeanRatingItemScorer extends AbstractItemScorer implements Seri
             final ImmutableSparseVector itemMeans;
             final double globalMean;
 
+            logger.debug("computing item mean ratings");
             Cursor<Rating> ratings = dao.streamEvents(Rating.class);
             try {
                 IdMeanAccumulator accum = new IdMeanAccumulator();
@@ -98,6 +99,8 @@ public class ItemMeanRatingItemScorer extends AbstractItemScorer implements Seri
             } finally {
                 ratings.close();
             }
+            logger.debug("computed means for {} items", itemMeans.size());
+            logger.debug("global mean rating is {}", globalMean);
 
             return new ItemMeanRatingItemScorer(itemMeans, globalMean, damping);
         }

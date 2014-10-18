@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -83,7 +83,7 @@ public class FeatureInfo implements Serializable {
      * @return The RMSE of the last iteration training this feature.
      */
     public double getLastRMSE() {
-        return trainingErrors.get(trainingErrors.size() - 1);
+        return trainingErrors.getDouble(trainingErrors.size() - 1);
     }
 
     /**
@@ -93,7 +93,7 @@ public class FeatureInfo implements Serializable {
      */
     public double getLastDeltaRMSE() {
         int n = trainingErrors.size();
-        return trainingErrors.get(n-2) - trainingErrors.get(n-1);
+        return trainingErrors.getDouble(n-2) - trainingErrors.getDouble(n-1);
     }
 
     /**

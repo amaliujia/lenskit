@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -53,6 +53,7 @@ public final class ScoredIds {
      * @param id The scored ID to copy.
      * @return A new builder that will copy the ID.
      */
+    @SuppressWarnings("unchecked")
     public static ScoredIdBuilder copyBuilder(ScoredId id) {
         ScoredIdBuilder bld = new ScoredIdBuilder(id.getId(), id.getScore());
         for (Symbol chan: id.getUnboxedChannelSymbols()) {
@@ -249,6 +250,7 @@ public final class ScoredIds {
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         protected ScoredId copy(ScoredId elt) {
             ScoredIdBuilder builder = new ScoredIdBuilder();
             builder.setId(elt.getId());

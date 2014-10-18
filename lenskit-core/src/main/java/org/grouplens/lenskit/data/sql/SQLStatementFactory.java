@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -45,16 +45,6 @@ public interface SQLStatementFactory {
     String prepareUsers();
 
     /**
-     * Prepare a statement to satisfy {@link DataAccessObject#getUserCount()}.
-     * The result set should contain a single row whose first column contains
-     * the number of users.
-     *
-     * @return A string for a sql query containing the total number of
-     *         users.
-     */
-    String prepareUserCount();
-
-    /**
      * Prepare a statement to satisfy {@link org.grouplens.lenskit.data.dao.ItemDAO#getItemIds()}.
      * Querying the statement should return one column per row containing the
      * numeric item ID.
@@ -62,15 +52,6 @@ public interface SQLStatementFactory {
      * @return A string for a sql query containing item ID data.
      */
     String prepareItems();
-
-    /**
-     * Prepare a statement to satisfy {@link DataAccessObject#getItemCount()}.
-     * The result set should contain a single row whose first column contains
-     * the number of items.
-     *
-     * @return A string for a sql query containing the total number of items.
-     */
-    String prepareItemCount();
 
     /**
      * Prepare a statement to satisfy

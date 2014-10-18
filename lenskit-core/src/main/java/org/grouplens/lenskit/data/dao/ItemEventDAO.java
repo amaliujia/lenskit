@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -22,7 +22,9 @@ package org.grouplens.lenskit.data.dao;
 
 import it.unimi.dsi.fastutil.longs.LongSet;
 import org.grouplens.grapht.annotation.DefaultImplementation;
+import org.grouplens.lenskit.cursors.Cursor;
 import org.grouplens.lenskit.data.event.Event;
+import org.grouplens.lenskit.data.history.ItemEventCollection;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -35,6 +37,24 @@ import java.util.List;
  */
 @DefaultImplementation(PrefetchingItemEventDAO.class)
 public interface ItemEventDAO {
+    /**
+     * Stream events grouped by item.
+     *
+     * @return A cursor iterating over the events from all items.  If an item exists but does not
+     *         have any events, it may or may not be included depending on the DAO implementation.
+     */
+    Cursor<ItemEventCollection<Event>> streamEventsByItem();
+
+    /**
+     * Stream events grouped by item.
+     *
+     * @param type The type of item to look for.
+     * @return A cursor iterating over the events of type {@code type} from all items.  If an item
+     *         exists but does not have any events, it may or may not be included depending on the
+     *         DAO implementation.
+     */
+    <E extends Event> Cursor<ItemEventCollection<E>> streamEventsByItem(Class<E> type);
+
     /**
      * Get the events for a specific item.
      * @param item The item ID.

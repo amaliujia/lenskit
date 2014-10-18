@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -23,23 +23,25 @@ package org.grouplens.lenskit.eval.script;
 import groovy.lang.Closure;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
+import org.grouplens.lenskit.eval.AbstractTask;
+import org.grouplens.lenskit.eval.TaskExecutionException;
 
 /**
- * A basic Ant task that executes a Groovy action. These tasks are added by {@link
+ * A basic Eval task that executes a Groovy action. These tasks are added by {@link
  * org.grouplens.lenskit.eval.script.TargetDelegate#perform(Closure)}.
  *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  * @since 1.2
  */
-public class GroovyActionTask extends Task {
-    private Closure<?> closure;
+public class GroovyActionTask<K> extends AbstractTask<K> {
+    private Closure<K> closure;
 
-    public GroovyActionTask(Closure<?> cl) {
+    public GroovyActionTask(Closure<K> cl) {
         closure = cl;
     }
 
     @Override
-    public void execute() throws BuildException {
-        closure.call();
+    protected K perform() throws TaskExecutionException, InterruptedException {
+        return closure.call();
     }
 }

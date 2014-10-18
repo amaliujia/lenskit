@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -18,20 +18,24 @@
  * this program; if not, write to the Free Software Foundation, Inc., 51
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
-
 package org.grouplens.lenskit.data.dao;
 
+import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
+import com.google.common.hash.PrimitiveSink;
 import com.google.common.io.Closeables;
 import org.grouplens.lenskit.cursors.Cursor;
 import org.grouplens.lenskit.cursors.Cursors;
 import org.grouplens.lenskit.data.event.Event;
 import org.grouplens.lenskit.data.event.Rating;
+import org.grouplens.lenskit.util.io.Describable;
 import org.grouplens.lenskit.util.io.CompressionMode;
+import org.grouplens.lenskit.util.io.DescriptionWriter;
 import org.grouplens.lenskit.util.io.LKFileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.inject.Inject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -44,7 +48,7 @@ import java.util.Comparator;
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  * @compat Public
  */
-public class SimpleFileRatingDAO implements EventDAO {
+public class SimpleFileRatingDAO implements EventDAO, Describable {
     private static final Logger logger = LoggerFactory.getLogger(SimpleFileRatingDAO.class);
 
     private final File sourceFile;
@@ -86,10 +90,9 @@ public class SimpleFileRatingDAO implements EventDAO {
      *
      * @param file      The file.
      * @param delim     The delimiter to look for in the file.
-     * @deprecated      use {@link #create(File file, String delim)} instead.
      */
-    @Deprecated
-    public SimpleFileRatingDAO(File file, String delim) {
+    @Inject
+    public SimpleFileRatingDAO(@RatingFile File file, @FieldSeparator String delim) {
         this(file, delim, CompressionMode.AUTO);
     }
 
@@ -102,8 +105,7 @@ public class SimpleFileRatingDAO implements EventDAO {
      * @return          A SimpleFileRatingDao Object
      */
     public static SimpleFileRatingDAO create(File file, String delim){
-        SimpleFileRatingDAO sfrd = new SimpleFileRatingDAO(file,delim, CompressionMode.AUTO);
-        return sfrd;
+        return create(file, delim, CompressionMode.AUTO);
     }
 
     public File getSourceFile() {
@@ -160,5 +162,12 @@ public class SimpleFileRatingDAO implements EventDAO {
             Throwables.propagateIfPossible(th);
             throw new DataAccessException(th);
         }
+    }
+
+    @Override
+    public void describeTo(DescriptionWriter descr) {
+        descr.putField("file", sourceFile.getAbsolutePath())
+             .putField("length", sourceFile.length())
+             .putField("mtime", sourceFile.lastModified());
     }
 }

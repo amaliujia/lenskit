@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * Parse & present command line options for running the evaluator.
+ * Parse &amp; present command line options for running the evaluator.
  *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  * @since 0.10

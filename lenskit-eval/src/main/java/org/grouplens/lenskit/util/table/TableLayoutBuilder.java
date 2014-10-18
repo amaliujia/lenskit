@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -58,7 +58,7 @@ public class TableLayoutBuilder implements Builder<TableLayout>, Cloneable {
      */
     public TableLayoutBuilder addColumn(String name) {
         if (name == null) {
-            throw new IllegalArgumentException("column name cannot be null");
+            throw new NullPointerException("column name");
         }
         if (columns.contains(name)) {
             throw new IllegalArgumentException("column " + name + " already exists");

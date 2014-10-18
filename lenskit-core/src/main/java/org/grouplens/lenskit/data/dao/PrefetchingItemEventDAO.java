@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,17 +20,30 @@
  */
 package org.grouplens.lenskit.data.dao;
 
+import com.google.common.base.Function;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
+import org.grouplens.lenskit.collections.CollectionUtils;
 import org.grouplens.lenskit.cursors.Cursor;
+import org.grouplens.lenskit.cursors.Cursors;
 import org.grouplens.lenskit.data.event.Event;
+import org.grouplens.lenskit.data.history.History;
+import org.grouplens.lenskit.data.history.ItemEventCollection;
+import org.grouplens.lenskit.data.history.UserHistory;
+import org.grouplens.lenskit.util.io.Describable;
+import org.grouplens.lenskit.util.io.DescriptionWriter;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Item event DAO that pre-loads all events from an event DAO.
@@ -38,24 +51,99 @@ import java.util.List;
  * @since 2.0
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
-public final class PrefetchingItemEventDAO implements ItemEventDAO {
+public final class PrefetchingItemEventDAO implements ItemEventDAO, Describable {
     private final EventDAO eventDAO;
-    private transient volatile Long2ObjectMap<List<Event>> itemEvents;
+    private final Supplier<Long2ObjectMap<List<Event>>> cache;
+
+    /**
+     * A function that wraps an event DAO in a prefetching item event DAO.  If the DAO already
+     * implements {@link ItemEventDAO}, it is returned unwrapped.
+     * @return A wrapper function to make item event DAOs from event DAOs.
+     */
+    public static Function<EventDAO,ItemEventDAO> wrapper() {
+        return WrapperFunction.INSTANCE;
+    }
+
+    private static enum WrapperFunction implements Function<EventDAO,ItemEventDAO> {
+        INSTANCE;
+
+        @Nullable
+        @Override
+        public ItemEventDAO apply(@Nullable EventDAO input) {
+            if (input instanceof ItemEventDAO) {
+                return (ItemEventDAO) input;
+            } else {
+                return new PrefetchingItemEventDAO(input);
+            }
+        }
+    }
 
     @Inject
     public PrefetchingItemEventDAO(EventDAO dao) {
         eventDAO = dao;
+        cache = Suppliers.memoize(new ItemProfileScanner());
     }
 
-    private void loadEvents() {
-        if (itemEvents != null) {
-            return;
+    @Override
+    public Cursor<ItemEventCollection<Event>> streamEventsByItem() {
+        Long2ObjectMap<List<Event>> map = cache.get();
+        return Cursors.wrap(Iterators.transform(map.entrySet().iterator(),
+                                                ItemEventTransform.INSTANCE));
+    }
+
+    @Override
+    public <E extends Event> Cursor<ItemEventCollection<E>> streamEventsByItem(final Class<E> type) {
+        return Cursors.transform(streamEventsByItem(), new Function<ItemEventCollection<Event>, ItemEventCollection<E>>() {
+            @Nullable
+            @Override
+            public ItemEventCollection<E> apply(@Nullable ItemEventCollection<Event> input) {
+                if (input == null) {
+                    return null;
+                } else {
+                    return History.forItem(input.getItemId(), Iterables.filter(input, type));
+                }
+            }
+        });
+    }
+
+    @Override
+    public List<Event> getEventsForItem(long item) {
+        return cache.get().get(item);
+    }
+
+    @Override
+    public <E extends Event> List<E> getEventsForItem(long item, Class<E> type) {
+        List<Event> events = getEventsForItem(item);
+        if (events == null) {
+            return null;
+        } else {
+            return ImmutableList.copyOf(Iterables.filter(events, type));
+        }
+    }
+
+    @Override
+    public LongSet getUsersForItem(long item) {
+        List<Event> events = getEventsForItem(item);
+        if (events == null) {
+            return null;
         }
 
-        synchronized (this) {
-            if (itemEvents != null) {
-                return;
-            }
+        LongSet users = new LongOpenHashSet();
+        for (Event evt: CollectionUtils.fast(events)) {
+            users.add(evt.getUserId());
+        }
+        return users;
+    }
+
+    @Override
+    public void describeTo(DescriptionWriter writer) {
+        writer.putField("daoType", "ItemEvent")
+              .putField("delegate", eventDAO);
+    }
+
+    private class ItemProfileScanner implements Supplier<Long2ObjectMap<List<Event>>> {
+        @Override
+        public Long2ObjectMap<List<Event>> get() {
             Long2ObjectMap<ImmutableList.Builder<Event>> table =
                     new Long2ObjectOpenHashMap<ImmutableList.Builder<Event>>();
             Cursor<Event> events = eventDAO.streamEvents();
@@ -77,37 +165,21 @@ public final class PrefetchingItemEventDAO implements ItemEventDAO {
                 result.put(evt.getLongKey(), evt.getValue().build());
                 evt.setValue(null);
             }
-            itemEvents = result;
+            return result;
         }
     }
 
-    @Override
-    public List<Event> getEventsForItem(long item) {
-        loadEvents();
-        return itemEvents.get(item);
-    }
-
-    @Override
-    public <E extends Event> List<E> getEventsForItem(long item, Class<E> type) {
-        List<Event> events = getEventsForItem(item);
-        if (events == null) {
-            return null;
-        } else {
-            return ImmutableList.copyOf(Iterables.filter(events, type));
+    private static enum ItemEventTransform implements Function<Map.Entry<Long,List<Event>>, ItemEventCollection<Event>> {
+        INSTANCE {
+            @Nullable
+            @Override
+            public ItemEventCollection<Event> apply(@Nullable Map.Entry<Long, List<Event>> input) {
+                if (input == null) {
+                    return null;
+                } else {
+                    return History.forItem(input.getKey(), input.getValue());
+                }
+            }
         }
-    }
-
-    @Override
-    public LongSet getUsersForItem(long item) {
-        List<Event> events = getEventsForItem(item);
-        if (events == null) {
-            return null;
-        }
-
-        LongSet users = new LongOpenHashSet();
-        for (Event evt: events) {
-            users.add(evt.getUserId());
-        }
-        return users;
     }
 }

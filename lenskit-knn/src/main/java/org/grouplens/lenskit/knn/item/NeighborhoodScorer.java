@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -27,7 +27,7 @@ import org.grouplens.lenskit.vectors.SparseVector;
 /**
  * Compute scores from neighborhoods and score vectors.
  *
- * <p/>
+ * <p>
  * This interface encapsulates aggregating user scores and item similarities into a final
  * score. The neighborhood is pre-filtered to only contain items for which
  * scores are available, and truncated to the neighborhood size, so all functions
@@ -42,11 +42,13 @@ public interface NeighborhoodScorer {
      * scores.
      *
      *
+     *
+     * @param item
      * @param neighbors A vector of neighbors with similarity measures.
      * @param scores    A vector of item scores. It should contain a score for
      *                  every item in {@var neighbors}.
-     * @return An accumulated score from the neighbors, or {@link Double#NaN} if
+     * @return An accumulated score from the neighbors, or {@code null} if
      *         no score could be computed.
      */
-    double score(Iterable<ScoredId> neighbors, SparseVector scores);
+    ScoredId score(long item, Iterable<ScoredId> neighbors, SparseVector scores);
 }

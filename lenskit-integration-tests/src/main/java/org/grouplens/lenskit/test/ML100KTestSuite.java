@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,11 +20,12 @@
  */
 package org.grouplens.lenskit.test;
 
+import org.grouplens.lenskit.core.LenskitConfiguration;
 import org.grouplens.lenskit.cursors.Cursors;
-import org.grouplens.lenskit.data.event.Event;
 import org.grouplens.lenskit.data.dao.EventCollectionDAO;
 import org.grouplens.lenskit.data.dao.EventDAO;
 import org.grouplens.lenskit.data.dao.SimpleFileRatingDAO;
+import org.grouplens.lenskit.data.event.Event;
 import org.grouplens.lenskit.util.io.CompressionMode;
 import org.junit.Before;
 
@@ -46,6 +47,12 @@ public class ML100KTestSuite {
 
     protected EventDAO dao;
 
+    protected LenskitConfiguration getDaoConfig() {
+        LenskitConfiguration config = new LenskitConfiguration();
+        config.bind(EventDAO.class).to(dao);
+        return config;
+    }
+
     @Before
     public void createDAOFactory() throws FileNotFoundException {
         assumeThat("Integration test skip requested",
@@ -65,8 +72,6 @@ public class ML100KTestSuite {
             throw new FileNotFoundException("ML data set at " + inputFile + ". " +
                                             "See <http://lenskit.grouplens.org/ML100K>.");
         }
-        EventDAO fileDao = new SimpleFileRatingDAO(inputFile, "\t", CompressionMode.NONE);
-        List<Event> events = Cursors.makeList(fileDao.streamEvents());
-        dao = new EventCollectionDAO(events);
+        dao = SimpleFileRatingDAO.create(inputFile, "\t", CompressionMode.NONE);
     }
 }

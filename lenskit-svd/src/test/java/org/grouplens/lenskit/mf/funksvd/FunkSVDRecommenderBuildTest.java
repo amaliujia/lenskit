@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -52,7 +52,7 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertThat;
 
 public class FunkSVDRecommenderBuildTest {
-    private EventCollectionDAO dao;
+    private EventDAO dao;
 
     @Before
     public void setup() throws RecommenderBuildException {
@@ -62,7 +62,7 @@ public class FunkSVDRecommenderBuildTest {
         rs.add(Ratings.make(8, 4, 5));
         rs.add(Ratings.make(8, 5, 4));
 
-        dao = new EventCollectionDAO(rs);
+        dao = EventCollectionDAO.create(rs);
     }
 
     @SuppressWarnings({"deprecation", "unchecked"})

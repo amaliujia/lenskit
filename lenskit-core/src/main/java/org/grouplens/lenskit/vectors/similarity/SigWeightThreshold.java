@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -36,7 +36,7 @@ import org.grouplens.lenskit.core.Parameter;
  * have fewer than <i>n</i> keys in common, then the similarity is decreased.
  *
  * @see org.grouplens.lenskit.vectors.similarity.SignificanceWeightedVectorSimilarity
- * @see WeightedSimilarity
+ * @see SignificanceWeightedVectorSimilarity
  */
 @Documented
 @DefaultInteger(0)

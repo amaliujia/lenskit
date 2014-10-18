@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -203,7 +203,7 @@ public class PackedScoredIdListTest {
         PackedScoredIdList list = builder.build();
         assertThat(list, hasSize(25));
         for (int i = 0; i < 25; i++) {
-            ScoredId id = new ScoredIdBuilder(i, vals.get(i)).build();
+            ScoredId id = new ScoredIdBuilder(i, vals.getDouble(i)).build();
             assertThat(list.get(i), equalTo(id));
         }
     }

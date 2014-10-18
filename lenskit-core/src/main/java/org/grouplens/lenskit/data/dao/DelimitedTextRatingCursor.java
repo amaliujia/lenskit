@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -78,12 +78,12 @@ public class DelimitedTextRatingCursor extends AbstractPollingCursor<Rating> {
                 continue;
             }
 
-            rating.setUserId(Long.parseLong(fields[0]));
-            rating.setItemId(Long.parseLong(fields[1]));
-            rating.setRating(Double.parseDouble(fields[2]));
+            rating.setUserId(Long.parseLong(fields[0].trim()));
+            rating.setItemId(Long.parseLong(fields[1].trim()));
+            rating.setRating(Double.parseDouble(fields[2].trim()));
             rating.setTimestamp(-1);
             if (fields.length >= 4) {
-                rating.setTimestamp(Long.parseLong(fields[3]));
+                rating.setTimestamp(Long.parseLong(fields[3].trim()));
             }
 
             return rating;

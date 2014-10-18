@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -36,6 +36,7 @@ import org.grouplens.lenskit.vectors.ImmutableSparseVector;
 import org.grouplens.lenskit.vectors.MutableSparseVector;
 import org.grouplens.lenskit.vectors.VectorEntry;
 import org.grouplens.lenskit.vectors.VectorEntry.State;
+import org.grouplens.lenskit.vectors.Vectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -110,11 +111,7 @@ public class LeastSquaresItemScorer extends AbstractItemScorer implements Serial
 
         @Override
         public LeastSquaresItemScorer get() {
-            double rmse = 0.0;
-            double uoff[] = new double[snapshot.getUserIds().size()];
-            double ioff[] = new double[snapshot.getItemIds().size()];
             FastCollection<IndexedPreference> ratings = snapshot.getRatings();
-
             logger.debug("training predictor on {} ratings", ratings.size());
 
             double sum = 0.0;
@@ -126,7 +123,12 @@ public class LeastSquaresItemScorer extends AbstractItemScorer implements Serial
             final double mean = sum / n;
             logger.debug("mean rating is {}", mean);
 
+            // TODO Use vectorz vectors instead of raw arrays
+            double uoff[] = new double[snapshot.getUserIds().size()];
+            double ioff[] = new double[snapshot.getItemIds().size()];
+
             final TrainingLoopController trainingController = stoppingCondition.newLoop();
+            double rmse = 0.0;
             while (trainingController.keepTraining(rmse)) {
                 double sse = 0;
                 for (IndexedPreference r : CollectionUtils.fast(ratings)) {
@@ -134,8 +136,8 @@ public class LeastSquaresItemScorer extends AbstractItemScorer implements Serial
                     final int iidx = r.getItemIndex();
                     final double p = mean + uoff[uidx] + ioff[iidx];
                     final double err = r.getValue() - p;
-                    uoff[uidx] += learningRate * (err - regularizationFactor * uoff[uidx]);
-                    ioff[iidx] += learningRate * (err - regularizationFactor * ioff[iidx]);
+                    uoff[uidx] += learningRate * (err - regularizationFactor * Math.abs(uoff[uidx]));
+                    ioff[iidx] += learningRate * (err - regularizationFactor * Math.abs(ioff[iidx]));
                     sse += err * err;
                 }
                 rmse = Math.sqrt(sse / ratings.size());
@@ -146,9 +148,9 @@ public class LeastSquaresItemScorer extends AbstractItemScorer implements Serial
             logger.info("trained baseline on {} ratings in {} iterations (final rmse={})", ratings.size(), trainingController.getIterationCount(), rmse);
 
             // Convert the uoff array to a SparseVector
-            MutableSparseVector svuoff = snapshot.userIndex().convertArrayToVector(uoff);
+            MutableSparseVector svuoff = Vectors.fromArray(snapshot.userIndex(), uoff);
             // Convert the ioff array to a SparseVector
-            MutableSparseVector svioff = snapshot.itemIndex().convertArrayToVector(ioff);
+            MutableSparseVector svioff = Vectors.fromArray(snapshot.itemIndex(), ioff);
             return new LeastSquaresItemScorer(svuoff.freeze(), svioff.freeze(), mean);
         }
     }

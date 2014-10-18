@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,22 +20,23 @@
  */
 package org.grouplens.lenskit.eval.metrics.topn;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Preconditions;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongList;
+import org.grouplens.lenskit.Recommender;
 import org.grouplens.lenskit.collections.CollectionUtils;
-import org.grouplens.lenskit.eval.algorithm.AlgorithmInstance;
+import org.grouplens.lenskit.eval.Attributed;
 import org.grouplens.lenskit.eval.data.traintest.TTDataSet;
-import org.grouplens.lenskit.eval.metrics.AbstractTestUserMetric;
-import org.grouplens.lenskit.eval.metrics.TestUserMetricAccumulator;
+import org.grouplens.lenskit.eval.metrics.AbstractMetric;
+import org.grouplens.lenskit.eval.metrics.ResultColumn;
 import org.grouplens.lenskit.eval.traintest.TestUser;
 import org.grouplens.lenskit.scored.ScoredId;
+import org.grouplens.lenskit.util.statistics.MeanAccumulator;
 import org.grouplens.lenskit.vectors.SparseVector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 import static java.lang.Math.log;
@@ -43,40 +44,45 @@ import static java.lang.Math.log;
 /**
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
-public class NDCGTopNMetric extends AbstractTestUserMetric {
+public class NDCGTopNMetric extends AbstractMetric<MeanAccumulator, NDCGTopNMetric.Result, NDCGTopNMetric.Result> {
     private static final Logger logger = LoggerFactory.getLogger(NDCGTopNMetric.class);
 
     private final int listSize;
     private final ItemSelector candidates;
     private final ItemSelector exclude;
-    private final ImmutableList<String> columns;
+    private final String prefix;
+    private final String suffix;
 
     /**
      * Construct a new nDCG Top-N metric.
+     * @param pre the prefix label for this evaluation, or {@code null} for no prefix.
+     * @param sfx the suffix label for this evaluation, or {@code null} for no suffix.
      * @param listSize The number of recommendations to fetch.
      * @param candidates The candidate selector.
      * @param exclude The exclude selector.
      */
-    public NDCGTopNMetric(String lbl, int listSize, ItemSelector candidates, ItemSelector exclude) {
+    public NDCGTopNMetric(String pre, String sfx, int listSize, ItemSelector candidates, ItemSelector exclude) {
+        super(Result.class, Result.class);
+        suffix = sfx;
+        prefix = pre;
         this.listSize = listSize;
         this.candidates = candidates;
         this.exclude = exclude;
-        columns = ImmutableList.of(lbl);
     }
 
     @Override
-    public Accum makeAccumulator(AlgorithmInstance algo, TTDataSet ds) {
-        return new Accum();
+    public MeanAccumulator createContext(Attributed algo, TTDataSet ds, Recommender rec) {
+        return new MeanAccumulator();
     }
 
     @Override
-    public List<String> getColumnLabels() {
-        return columns;
+    protected String getPrefix() {
+        return prefix;
     }
 
     @Override
-    public List<String> getUserColumnLabels() {
-        return columns;
+    protected String getSuffix() {
+        return suffix;
     }
 
     /**
@@ -103,50 +109,55 @@ public class NDCGTopNMetric extends AbstractTestUserMetric {
         return gain;
     }
 
-    class Accum implements TestUserMetricAccumulator {
-        double total = 0;
-        int nusers = 0;
-
-        @Nonnull
-        @Override
-        public Object[] evaluate(TestUser user) {
-            List<ScoredId> recommendations;
-            recommendations = user.getRecommendations(listSize, candidates, exclude);
-            if (recommendations == null) {
-                return userRow();
-            }
-            return evaluateRecommendations(user.getTestRatings(), recommendations);
+    @Override
+    public Result doMeasureUser(TestUser user, MeanAccumulator context) {
+        List<ScoredId> recommendations;
+        recommendations = user.getRecommendations(listSize, candidates, exclude);
+        if (recommendations == null) {
+            return null;
         }
 
-        Object[] evaluateRecommendations(SparseVector ratings, List<ScoredId> recommendations) {
-            LongList ideal = ratings.keysByValue(true);
-            if (ideal.size() > listSize) {
-                ideal = ideal.subList(0, listSize);
-            }
-            double idealGain = computeDCG(ideal, ratings);
-
-            LongList actual = new LongArrayList(recommendations.size());
-            for (ScoredId id: CollectionUtils.fast(recommendations)) {
-                actual.add(id.getId());
-            }
-            double gain = computeDCG(actual, ratings);
-
-            double score = gain / idealGain;
-            total += score;
-            nusers += 1;
-            return userRow(score);
+        SparseVector ratings = user.getTestRatings();
+        LongList ideal = ratings.keysByValue(true);
+        if (ideal.size() > listSize) {
+            ideal = ideal.subList(0, listSize);
         }
+        double idealGain = computeDCG(ideal, ratings);
 
-        @Nonnull
-        @Override
-        public Object[] finalResults() {
-            if (nusers > 0) {
-                double v = total / nusers;
-                logger.info("Top-N nDCG: {}", v);
-                return finalRow(v);
-            } else {
-                return finalRow();
-            }
+        LongList actual = new LongArrayList(recommendations.size());
+        for (ScoredId id: CollectionUtils.fast(recommendations)) {
+            actual.add(id.getId());
+        }
+        double gain = computeDCG(actual, ratings);
+
+        double score = gain / idealGain;
+
+        context.add(score);
+        return new Result(score);
+    }
+
+    @Override
+    protected Result getTypedResults(MeanAccumulator context) {
+        return new Result(context.getMean());
+    }
+
+    public static class Result {
+        @ResultColumn("TopN.nDCG")
+        public final double nDCG;
+
+        public Result(double v) {
+            nDCG = v;
         }
     }
+
+    /**
+     * @author <a href="http://www.grouplens.org">GroupLens Research</a>
+     */
+    public static class Builder extends TopNMetricBuilder<NDCGTopNMetric>{
+        @Override
+        public NDCGTopNMetric build() {
+            return new NDCGTopNMetric(prefix, suffix, listSize, candidates, exclude);
+        }
+    }
+
 }

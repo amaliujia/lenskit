@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -22,10 +22,11 @@ package org.grouplens.lenskit.knn.item;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
-import org.grouplens.lenskit.core.Shareable;
+import org.grouplens.lenskit.knn.MinNeighbors;
 import org.grouplens.lenskit.knn.NeighborhoodSize;
 import org.grouplens.lenskit.knn.item.model.ItemItemModel;
 import org.grouplens.lenskit.scored.ScoredId;
+import org.grouplens.lenskit.symbols.TypedSymbol;
 import org.grouplens.lenskit.vectors.MutableSparseVector;
 import org.grouplens.lenskit.vectors.SparseVector;
 import org.grouplens.lenskit.vectors.VectorEntry;
@@ -34,7 +35,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
-import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -43,16 +43,16 @@ import java.util.List;
  *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
-@Shareable
-public class DefaultItemScoreAlgorithm implements ItemScoreAlgorithm, Serializable {
-    private static final long serialVersionUID = 1L;
-
+public class DefaultItemScoreAlgorithm implements ItemScoreAlgorithm {
     private static Logger logger = LoggerFactory.getLogger(DefaultItemScoreAlgorithm.class);
-    private int neighborhoodSize;
+
+    private final int neighborhoodSize;
+    private final int minNeighbors;
 
     @Inject
-    public DefaultItemScoreAlgorithm(@NeighborhoodSize int n) {
+    public DefaultItemScoreAlgorithm(@NeighborhoodSize int n, @MinNeighbors int min) {
         neighborhoodSize = n;
+        minNeighbors = min <= 0 ? 1 : min;
     }
 
     @Override
@@ -62,28 +62,35 @@ public class DefaultItemScoreAlgorithm implements ItemScoreAlgorithm, Serializab
         Predicate<ScoredId> usable = new VectorKeyPredicate(userData);
 
         // Create a channel for recording the neighborhoodsize
-        scores.getOrAddChannelVector(ItemItemScorer.NEIGHBORHOOD_SIZE_SYMBOL);
+        MutableSparseVector sizeChannel = scores.getOrAddChannelVector(ItemItemScorer.NEIGHBORHOOD_SIZE_SYMBOL);
+        sizeChannel.fill(0);
         // for each item, compute its prediction
         for (VectorEntry e : scores.fast(VectorEntry.State.EITHER)) {
             final long item = e.getKey();
 
             // find all potential neighbors
-            // we will use the fast iterator - that seems to work
-            FluentIterable<ScoredId> neighborIter =
-                    FluentIterable.from(model.getNeighbors(item))
-                                  .filter(usable);
+            FluentIterable<ScoredId> nbrIter = FluentIterable.from(model.getNeighbors(item))
+                                                             .filter(usable);
             if (neighborhoodSize > 0) {
-                neighborIter = neighborIter.limit(neighborhoodSize);
+                nbrIter = nbrIter.limit(neighborhoodSize);
             }
-            List<ScoredId> neighbors = neighborIter.toList();
+            List<ScoredId> neighbors = nbrIter.toList();
 
             // compute score & place in vector
-            final double score = scorer.score(neighbors, userData);
-            scores.getChannelVector(ItemItemScorer.NEIGHBORHOOD_SIZE_SYMBOL).
-                    set(e.getKey(), neighbors.size()); // set size even if no score
-            if (!Double.isNaN(score)) {
-                scores.set(e, score);
+            ScoredId score = null;
+
+            if (neighbors.size() >= minNeighbors) {
+                score = scorer.score(item, neighbors, userData);
             }
+
+            if (score != null) {
+                scores.set(e, score.getScore());
+                for (TypedSymbol sym: score.getChannelSymbols()) {
+                    scores.getOrAddChannel(sym).put(e.getKey(), score.getChannelValue(sym));
+                }
+            }
+
+            sizeChannel.set(e, neighbors.size());
         }
     }
 

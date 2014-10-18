@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -21,7 +21,7 @@
 package org.grouplens.lenskit.baseline;
 
 import org.grouplens.lenskit.ItemScorer;
-import org.grouplens.lenskit.util.test.MockItemScorer;
+import org.grouplens.lenskit.basic.PrecomputedItemScorer;
 import org.grouplens.lenskit.vectors.MutableSparseVector;
 import org.junit.Before;
 import org.junit.Test;
@@ -40,10 +40,10 @@ public class FallbackItemScorerTest {
 
     @Before
     public void setupScorer() {
-        primary = MockItemScorer.newBuilder()
+        primary = PrecomputedItemScorer.newBuilder()
                                 .addScore(42, 39, 3.5)
                                 .build();
-        baseline = MockItemScorer.newBuilder()
+        baseline = PrecomputedItemScorer.newBuilder()
                                  .addScore(42, 39, 2.0)
                                  .addScore(42, 30, 4.0)
                                  .addScore(15, 30, 5.0)
@@ -75,7 +75,11 @@ public class FallbackItemScorerTest {
         scorer.score(42, msv);
         assertThat(msv.size(), equalTo(2));
         assertThat(msv.get(39), equalTo(3.5));
+        assertThat(msv.getChannel(FallbackItemScorer.SCORE_SOURCE_SYMBOL).get(39),
+                   equalTo(ScoreSource.PRIMARY));
         assertThat(msv.get(30), equalTo(4.0));
+        assertThat(msv.getChannel(FallbackItemScorer.SCORE_SOURCE_SYMBOL).get(30),
+                   equalTo(ScoreSource.BASELINE));
         assertThat(msv.unsetKeySet(), contains(10L));
     }
 }

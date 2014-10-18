@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,12 +20,18 @@
  */
 package org.grouplens.lenskit.config;
 
+import com.google.common.base.Joiner;
 import groovy.lang.Binding;
 import groovy.lang.MissingMethodException;
+import groovy.lang.MissingPropertyException;
 import groovy.lang.Script;
 import org.codehaus.groovy.runtime.InvokerHelper;
 import org.grouplens.lenskit.core.LenskitConfiguration;
 import org.grouplens.lenskit.core.RecommenderConfigurationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Set;
 
 /**
  * Base class for LensKit configuration scripts.  This class mixes in {@code LenskitConfigDSL}, so
@@ -35,6 +41,7 @@ import org.grouplens.lenskit.core.RecommenderConfigurationException;
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
 public abstract class LenskitConfigScript extends Script {
+    protected final Logger logger = LoggerFactory.getLogger(LenskitConfigScript.class);
     private LenskitConfigDSL delegate;
 
     protected LenskitConfigScript() {
@@ -92,10 +99,18 @@ public abstract class LenskitConfigScript extends Script {
         setDelegate(new LenskitConfigDSL(old.getConfigLoader(), config));
         try {
             run();
+        } catch (MissingPropertyException e) {
+            String name = e.getProperty();
+            Set<String> packages = delegate.getConfigLoader().getDirectory().getPackages(name);
+            logger.error("Cannot resolve class or property " + name);
+            if (!packages.isEmpty()) {
+                logger.info("Did you intend to import it from {}?", Joiner.on(", ").join(packages));
+            }
+            throw new RecommenderConfigurationException("error configuring recommender", e);
         } catch (Exception ex) {
             throw new RecommenderConfigurationException("error configuring recommender", ex);
         } finally {
-            setDelegate(old);;
+            setDelegate(old);
         }
     }
 
@@ -107,6 +122,14 @@ public abstract class LenskitConfigScript extends Script {
     public LenskitConfiguration configure() throws RecommenderConfigurationException {
         try {
             run();
+        } catch (MissingPropertyException e) {
+            String name = e.getProperty();
+            Set<String> packages = delegate.getConfigLoader().getDirectory().getPackages(name);
+            logger.error("Cannot resolve class or property " + name);
+            if (!packages.isEmpty()) {
+                logger.info("Did you intend to import it from {}?", Joiner.on(", ").join(packages));
+            }
+            throw new RecommenderConfigurationException("error configuring recommender", e);
         } catch (Exception ex) {
             throw new RecommenderConfigurationException("error configuring recommender", ex);
         }

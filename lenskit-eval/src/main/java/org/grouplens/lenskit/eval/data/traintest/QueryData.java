@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,18 +20,17 @@
  */
 package org.grouplens.lenskit.eval.data.traintest;
 
-import org.grouplens.grapht.annotation.AllowUnqualifiedMatch;
-
 import javax.inject.Qualifier;
 import java.lang.annotation.*;
 
 /**
- * Qualifier to access query data available.
+ * Qualifier to access query data available.  When applied to {@link org.grouplens.lenskit.data.dao.UserDAO},
+ * the list of test users will be injected.  That is the only currently-supported use.
+ *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
 @Documented
 @Qualifier
-@AllowUnqualifiedMatch
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.PARAMETER, ElementType.METHOD})
 public @interface QueryData {

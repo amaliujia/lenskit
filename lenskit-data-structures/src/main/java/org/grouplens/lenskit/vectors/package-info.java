@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -19,21 +19,14 @@
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 /**
- * Vectors (both sparse and dense) and their operations.  This package provides various
- * vector utilities used by LensKit.
+ * Sparse vectors and their operations.  Sparse vectors map arbitrary long keys to values sparsely
+ * and efficiently.  The keys can be negative.
  *
- * <p>There are two types of vectors in this package: vectors ({@link Vector}) and sparse
- * vectors ({@link SparseVector}).  Vectors are the standard linear algebra vectors, with
- * a particular dimension \(d\) and elements indexed by integers in the range \([0,d)\).
- * Sparse vectors map arbitrary long keys to values sparsely and efficiently.  The keys can
- * be negative.
- *
- * <p>Each vector comes in three flavors. Read-only vectors ({@link Vector} and {@link SparseVector});
+ * <p>Sparse vectors come in three flavors. Read-only vectors ({@link SparseVector});
  * this type is the base of the remaining types for each vector, and provides a read-only
- * interface to the vector.  Immutable vectors ({@link ImmutableVector}
- * and {@link ImmutableSparseVector}) are immutable and cannot be
+ * interface to the vector.  Immutable vectors ({@link ImmutableSparseVector}) are immutable and cannot be
  * changed once created.  They can also be freely shared between threads.  Finally, mutable vectors
- * ({@link MutableVector}) and {@link MutableSparseVector})
+ * ({@link MutableSparseVector})
  * are mutable and not thread-safe.
  *
  * <p>This design allows read-only operations to be performed on any type of vector, while allowing

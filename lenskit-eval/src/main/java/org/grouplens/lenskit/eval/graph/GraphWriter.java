@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -23,7 +23,8 @@ package org.grouplens.lenskit.eval.graph;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
-import org.apache.commons.lang3.StringEscapeUtils;
+import com.google.common.escape.Escaper;
+import com.google.common.escape.Escapers;
 
 import javax.annotation.Nullable;
 import java.io.BufferedWriter;
@@ -38,6 +39,17 @@ import java.util.regex.Pattern;
  */
 class GraphWriter implements Closeable {
     private static final Pattern SAFE_VALUE = Pattern.compile("\\w+");
+    /**
+     * Escaper for GraphViz string literals. It is strange that they only escape quotes, not even
+     * the escape character, but that is what they do.
+     * See <a href="http://www.graphviz.org/content/dot-language">The DOT Language</a> for a
+     * reference.
+     */
+    private static final Escaper GRAPHVIZ_ESCAPE =
+            Escapers.builder()
+                    .addEscape('"', "\\\"")
+                    .build();
+
     private final BufferedWriter output;
 
     public GraphWriter(Writer out) throws IOException {
@@ -64,7 +76,7 @@ class GraphWriter implements Closeable {
         if (obj instanceof HTMLLabel || SAFE_VALUE.matcher(str).matches()) {
             return str;
         } else {
-            return "\"" + StringEscapeUtils.escapeJava(str) + "\"";
+            return "\"" + GRAPHVIZ_ESCAPE.escape(str) + "\"";
         }
     }
 

@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,9 +20,10 @@
  */
 package org.grouplens.lenskit.knn.item.model;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongSortedSet;
 import org.grouplens.grapht.annotation.DefaultProvider;
+import org.grouplens.lenskit.collections.LongKeyDomain;
 import org.grouplens.lenskit.core.Shareable;
 import org.grouplens.lenskit.scored.ScoredId;
 
@@ -30,11 +31,12 @@ import javax.annotation.Nonnull;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Item-item similarity model using an in-memory similarity matrix.
  *
- * <p/>
+ * <p>
  * These similarities are post-normalization, so code using them
  * should use the same normalizations used by the builder to make use of the
  * similarity scores.
@@ -45,36 +47,68 @@ import java.util.List;
 @DefaultProvider(ItemItemModelBuilder.class)
 @Shareable
 public class SimilarityMatrixModel implements Serializable, ItemItemModel {
-    private static final long serialVersionUID = 2L;
+    private static final long serialVersionUID = 3L;
 
-    private final Long2ObjectMap<List<ScoredId>> similarityMatrix;
-    private final LongSortedSet itemUniverse;
+    private final LongKeyDomain itemDomain;
+    private final List<List<ScoredId>> neighborhoods;
+    private transient volatile String stringValue;
 
     /**
      * Construct a new item-item model.
      *
-     * @param universe The set of item IDs. This should be equal to the key set
-     *                 of the matrix.
-     * @param matrix   The similarity matrix columns (maps item ID to column)
+     * @param items The item domain.
+     * @param nbrs  The item neighborhoods.
+     * @deprecated This is deprecated for public usage.  It is better to use the other constructor.
      */
-    public SimilarityMatrixModel(LongSortedSet universe, Long2ObjectMap<List<ScoredId>> matrix) {
-        itemUniverse = universe;
-        similarityMatrix = matrix;
+    @Deprecated
+    public SimilarityMatrixModel(LongKeyDomain items, List<List<ScoredId>> nbrs) {
+        itemDomain = items.clone();
+        neighborhoods = ImmutableList.copyOf(nbrs);
+    }
+
+    /**
+     * Construct a new item-item model.
+     *
+     * @param nbrs  The item neighborhoods.  The item neighborhood lists are not copied.
+     */
+    public SimilarityMatrixModel(Map<Long,List<ScoredId>> nbrs) {
+        itemDomain = LongKeyDomain.fromCollection(nbrs.keySet(), true);
+        int n = itemDomain.domainSize();
+        assert n == nbrs.size();
+        ImmutableList.Builder<List<ScoredId>> neighbors = ImmutableList.builder();
+        for (int i = 0; i < n; i++) {
+            neighbors.add(nbrs.get(itemDomain.getKey(i)));
+        }
+        neighborhoods = neighbors.build();
     }
 
     @Override
     public LongSortedSet getItemUniverse() {
-        return itemUniverse;
+        return itemDomain.activeSetView();
     }
 
     @Override
     @Nonnull
     public List<ScoredId> getNeighbors(long item) {
-        List<ScoredId> v = similarityMatrix.get(item);
-        if (v == null) {
+        int idx = itemDomain.getIndex(item);
+        if (idx < 0) {
             return Collections.emptyList();
         } else {
-            return v;
+            return neighborhoods.get(idx);
         }
+    }
+
+    @Override
+    public String toString() {
+        String val = stringValue;
+        if (val == null) {
+            int nsims = 0;
+            for (List<ScoredId> nbrs: neighborhoods) {
+                nsims += nbrs.size();
+            }
+            val = String.format("matrix of %d similarities for %d items", nsims, neighborhoods.size());
+            stringValue = val;
+        }
+        return val;
     }
 }

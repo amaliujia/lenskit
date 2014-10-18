@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -60,7 +60,7 @@ public class EvalTarget extends Target implements ListenableFuture<Object> {
     public void execute() throws BuildException {
         try {
             logger.info("beginning execution of {}", getName());
-            Stopwatch watch = new Stopwatch().start();
+            Stopwatch watch = Stopwatch.createStarted();
             super.execute();
             watch.stop();
             logger.info("{} finished in {}", getName(), watch);
@@ -76,7 +76,8 @@ public class EvalTarget extends Target implements ListenableFuture<Object> {
                             returnValue.setException(ex.getCause());
                         } catch (InterruptedException e) {
                             logger.warn("{}: task future get() was interrupted", getName());
-                            /* try again */
+                            returnValue.setException(e);
+                            throw new BuildException("Build task interrupted", e);
                         }
                     }
                 }

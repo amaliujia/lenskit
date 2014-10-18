@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -23,6 +23,8 @@ package org.grouplens.lenskit.eval.data;
 import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.builder.Builder;
 import org.grouplens.lenskit.data.pref.PreferenceDomain;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.File;
@@ -33,10 +35,10 @@ import java.io.File;
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
 public class CSVDataSourceBuilder implements Builder<DataSource> {
+    private static final Logger logger = LoggerFactory.getLogger(CSVDataSourceBuilder.class);
     private String name;
     String delimiter = ",";
     File inputFile;
-    boolean cache = true;
     PreferenceDomain domain;
 
     public CSVDataSourceBuilder() {}
@@ -115,20 +117,13 @@ public class CSVDataSourceBuilder implements Builder<DataSource> {
     }
 
     /**
-     * Get whether the constructed data source will cache its input.
-     * @return Whether the data source will have caching inabled.
-     */
-    public boolean getCache() {
-        return cache;
-    }
-
-    /**
      * Specify whether to cache ratings in memory. Caching is enabled by default.
      *
      * @param on {@code false} to disable caching.
      */
+    @Deprecated
     public CSVDataSourceBuilder setCache(boolean on) {
-        cache = on;
+        logger.warn("the cache directive on CSV files is now a no-op");
         return this;
     }
 
@@ -165,6 +160,6 @@ public class CSVDataSourceBuilder implements Builder<DataSource> {
         }
         // by now we should have a file
         Preconditions.checkState(inputFile != null, "no input file specified");
-        return new CSVDataSource(getName(), inputFile, delimiter, cache, domain);
+        return new CSVDataSource(getName(), inputFile, delimiter, domain);
     }
 }

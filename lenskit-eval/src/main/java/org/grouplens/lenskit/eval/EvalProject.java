@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -21,7 +21,9 @@
 package org.grouplens.lenskit.eval;
 
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
 import org.apache.tools.ant.*;
+import org.grouplens.grapht.util.ClassLoaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +42,8 @@ public class EvalProject {
     private Project antProject;
     private Random random = new Random();
     private String defaultTarget;
+    private final EventBus eventBus;
+    private final ClassLoader classLoader;
 
     /**
      * Construct a new eval project.
@@ -49,6 +53,20 @@ public class EvalProject {
      *              {@link #setUserProperty(String, String)} so that they have Ant-like behavior.
      */
     public EvalProject(@Nullable Properties props) {
+        this(props, ClassLoaders.inferDefault(EvalProject.class));
+    }
+
+        /**
+         * Construct a new eval project.
+         * @param props A set of additional properties.  These properties will be available in the
+         *              project, in addition to the system properties.  This is not where properties
+         *              from the command line should be supplied; those should be set with
+         *              {@link #setUserProperty(String, String)} so that they have Ant-like behavior.
+         * @param loader A class loader. This class loader will be used by the project for custom class
+         *               loading, such as reading cached objects from disk. If null, the default classloader
+         *               will be used.
+         */
+    public EvalProject(@Nullable Properties props, ClassLoader loader) {
         antProject = new Project();
         antProject.init();
         antProject.addBuildListener(new Listener());
@@ -58,8 +76,20 @@ public class EvalProject {
                 ph.setProperty(prop.getKey().toString(), prop.getValue().toString(), false);
             }
         }
+
+        classLoader = loader;        
+        eventBus = new EventBus();
     }
 
+    /**
+     * Get the class loader that should be used for custom class loading.
+     * 
+     * @return the class loader
+     */
+    public ClassLoader getClassLoader() {
+        return classLoader;
+    }
+    
     /**
      * Get the Ant project from this eval project.
      *
@@ -67,6 +97,16 @@ public class EvalProject {
      */
     public Project getAntProject() {
         return antProject;
+    }
+
+    /**
+     * Get this project's event bus.  The event bus is used for things like monitoring
+     * instrumentation.
+     *
+     * @return The event bus.
+     */
+    public EventBus getEventBus() {
+        return eventBus;
     }
 
     /**

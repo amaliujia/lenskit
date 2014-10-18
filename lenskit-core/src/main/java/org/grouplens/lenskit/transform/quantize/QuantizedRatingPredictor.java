@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,12 +20,18 @@
  */
 package org.grouplens.lenskit.transform.quantize;
 
+import it.unimi.dsi.fastutil.longs.LongSet;
+import org.grouplens.lenskit.ItemScorer;
 import org.grouplens.lenskit.RatingPredictor;
+import org.grouplens.lenskit.baseline.BaselineScorer;
+import org.grouplens.lenskit.baseline.PrimaryScorer;
 import org.grouplens.lenskit.basic.AbstractRatingPredictor;
 import org.grouplens.lenskit.vectors.MutableSparseVector;
+import org.grouplens.lenskit.vectors.SparseVector;
 import org.grouplens.lenskit.vectors.VectorEntry;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 /**
@@ -33,17 +39,22 @@ import javax.inject.Inject;
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
 public class QuantizedRatingPredictor extends AbstractRatingPredictor implements RatingPredictor {
-    private RatingPredictor basePredictor;
-    private Quantizer quantizer;
+    private final ItemScorer itemScorer;
+    private final ItemScorer baselineScorer;
+    private final Quantizer quantizer;
 
     /**
      * Construct a new quantized predictor.
-     * @param base The base predictor.
+     * @param scorer The item scorer to use.
+     * @param baseline A baseline scorer to fall back to.
      * @param q The quantizer.
      */
     @Inject
-    public QuantizedRatingPredictor(RatingPredictor base, Quantizer q) {
-        basePredictor = base;
+    public QuantizedRatingPredictor(@PrimaryScorer ItemScorer scorer,
+                                    @Nullable @BaselineScorer ItemScorer baseline,
+                                    Quantizer q) {
+        itemScorer = scorer;
+        baselineScorer = baseline;
         quantizer = q;
     }
 
@@ -55,7 +66,14 @@ public class QuantizedRatingPredictor extends AbstractRatingPredictor implements
 
     @Override
     public void predict(long user, @Nonnull MutableSparseVector scores) {
-        basePredictor.predict(user, scores);
+        itemScorer.score(user, scores);
+        if (baselineScorer != null) {
+            LongSet unset = scores.unsetKeySet();
+            if (!unset.isEmpty()) {
+                SparseVector bscores = baselineScorer.score(user, unset);
+                scores.set(bscores);
+            }
+        }
         quantize(scores);
     }
 }

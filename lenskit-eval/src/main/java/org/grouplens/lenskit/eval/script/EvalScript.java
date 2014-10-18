@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -159,9 +159,9 @@ public class EvalScript extends Script implements GroovyObject {
 
     /**
      * Performs a file search based upon the parameter glob pattern.
+     *
      * @param globPattern String in glob syntax giving the glob to expand.
-     * @return A List<String> of paths from the working directory to
-     *          matching file names.
+     * @return A list of paths from the working directory to matching file names.
      */
     public List<String> glob(String globPattern) {
         return glob(globPattern, ".");
@@ -171,9 +171,8 @@ public class EvalScript extends Script implements GroovyObject {
      * Performs a file search based upon the parameter glob pattern.
      *
      * @param globPattern String in glob syntax giving the glob to expand.
-     * @param baseDir The base directory from which to search.
-     * @return A List<String> of paths from the base directory
-     *          matching the glob.
+     * @param baseDir     The base directory from which to search.
+     * @return A list of paths from the base directory matching the glob.
      */
     public List<String> glob(String globPattern, String baseDir) {
         DirectoryScanner ds = new DirectoryScanner();

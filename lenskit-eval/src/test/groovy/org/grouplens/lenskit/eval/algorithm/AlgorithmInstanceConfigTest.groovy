@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -23,8 +23,10 @@ package org.grouplens.lenskit.eval.algorithm
 import org.grouplens.lenskit.ItemScorer
 import org.grouplens.lenskit.baseline.GlobalMeanRatingItemScorer
 import org.grouplens.lenskit.data.dao.EventCollectionDAO
+import org.grouplens.lenskit.data.dao.EventDAO
 import org.grouplens.lenskit.eval.data.GenericDataSource
 import org.grouplens.lenskit.eval.script.ConfigTestBase
+import org.grouplens.lenskit.eval.traintest.ExternalAlgorithm
 import org.grouplens.lenskit.iterative.ThresholdStoppingCondition
 import org.grouplens.lenskit.iterative.MinimumIterations
 import org.grouplens.lenskit.iterative.StoppingThreshold
@@ -49,8 +51,8 @@ class AlgorithmInstanceConfigTest extends ConfigTestBase {
                 attributes["wombat"] = "global"
             }
         }
-        assertThat(obj, instanceOf(LenskitAlgorithmInstance))
-        def algo = obj as LenskitAlgorithmInstance
+        assertThat(obj, instanceOf(AlgorithmInstance))
+        def algo = obj as AlgorithmInstance
         assertThat(algo.name, equalTo("GlobalMean"))
         assertThat(algo.attributes["wombat"] as String, equalTo("global"))
     }
@@ -72,11 +74,11 @@ class AlgorithmInstanceConfigTest extends ConfigTestBase {
                     set StoppingThreshold to 0.001d
                     set MinimumIterations to 42
                 }
+                bind EventDAO to new EventCollectionDAO([])
             }
         }
-        def algo = obj as LenskitAlgorithmInstance
-        def rec = algo.buildRecommender(new GenericDataSource("data", new EventCollectionDAO([])),
-                                        null, null);
+        def algo = obj as AlgorithmInstance
+        def rec = algo.buildRecommender(null);
         def stop = rec.get(ThresholdStoppingCondition)
         assertThat(stop.threshold,
                    closeTo(0.001d, 1.0e-6d))
@@ -106,11 +108,11 @@ class AlgorithmInstanceConfigTest extends ConfigTestBase {
                     set StoppingThreshold to 0.001d
                     set MinimumIterations to 42
                 }
+                bind EventDAO to new EventCollectionDAO([])
             }
         }
-        def algo = obj as LenskitAlgorithmInstance
-        def rec = algo.buildRecommender(new GenericDataSource("data", new EventCollectionDAO([])),
-                                        null, null);
+        def algo = obj as AlgorithmInstance
+        def rec = algo.buildRecommender(null);
         def stop = rec.get(ThresholdStoppingCondition)
         assertThat(stop.threshold,
                    closeTo(0.001d, 1.0e-5d))
@@ -132,8 +134,8 @@ class AlgorithmInstanceConfigTest extends ConfigTestBase {
                 attributes["wombat"] = "global"
             }
         }
-        assertThat(obj, instanceOf(ExternalAlgorithmInstance))
-        def algo = obj as ExternalAlgorithmInstance
+        assertThat(obj, instanceOf(ExternalAlgorithm))
+        def algo = obj as ExternalAlgorithm
         assertThat(algo.name, equalTo("Cheater"))
         assertThat(algo.attributes["wombat"] as String, equalTo("global"))
         assertThat(algo.command, equalTo(["cat", "{TEST_DATA}"].toList()))

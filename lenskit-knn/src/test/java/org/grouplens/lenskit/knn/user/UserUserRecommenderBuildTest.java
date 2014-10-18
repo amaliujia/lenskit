@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -35,8 +35,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.sameInstance;
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertThat;
 
 public class UserUserRecommenderBuildTest {
@@ -57,7 +56,7 @@ public class UserUserRecommenderBuildTest {
         LenskitConfiguration config = new LenskitConfiguration();
         config.bind(EventDAO.class).to(dao);
         config.bind(ItemScorer.class).to(UserUserItemScorer.class);
-        config.bind(NeighborhoodFinder.class).to(SimpleNeighborhoodFinder.class);
+        config.bind(NeighborFinder.class).to(LiveNeighborFinder.class);
 
         engine = LenskitRecommenderEngine.build(config);
     }
@@ -75,5 +74,33 @@ public class UserUserRecommenderBuildTest {
         assertThat(pred, instanceOf(SimpleRatingPredictor.class));
         assertThat(((SimpleRatingPredictor) pred).getScorer(),
                    sameInstance(rec.getItemScorer()));
+    }
+
+    @Test
+    public void testSnapshot() throws RecommenderBuildException {
+        List<Rating> rs = new ArrayList<Rating>();
+        rs.add(Ratings.make(1, 5, 2));
+        rs.add(Ratings.make(1, 7, 4));
+        rs.add(Ratings.make(8, 4, 5));
+        rs.add(Ratings.make(8, 5, 4));
+
+        EventDAO dao = EventCollectionDAO.create(rs);
+
+        LenskitConfiguration config = new LenskitConfiguration();
+        config.bind(EventDAO.class).to(dao);
+        config.bind(ItemScorer.class).to(UserUserItemScorer.class);
+        config.bind(NeighborFinder.class).to(SnapshotNeighborFinder.class);
+
+        LenskitRecommenderEngine engine = LenskitRecommenderEngine.build(config);
+        Recommender rec = engine.createRecommender();
+        assertThat(rec.getItemScorer(),
+                   instanceOf(UserUserItemScorer.class));
+        assertThat(rec.getItemRecommender(),
+                   instanceOf(TopNItemRecommender.class));
+        RatingPredictor pred = rec.getRatingPredictor();
+        assertThat(pred, instanceOf(SimpleRatingPredictor.class));
+
+        Recommender rec2 = engine.createRecommender();
+        assertThat(rec2.getItemScorer(), not(sameInstance(rec.getItemScorer())));
     }
 }

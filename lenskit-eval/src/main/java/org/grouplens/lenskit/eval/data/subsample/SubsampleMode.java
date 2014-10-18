@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -18,17 +18,21 @@
  * this program; if not, write to the Free Software Foundation, Inc., 51
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
-
 package org.grouplens.lenskit.eval.data.subsample;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongLists;
+import org.grouplens.lenskit.collections.CollectionUtils;
 import org.grouplens.lenskit.cursors.Cursors;
-import org.grouplens.lenskit.data.dao.*;
+import org.grouplens.lenskit.data.dao.ItemDAO;
+import org.grouplens.lenskit.data.dao.ItemEventDAO;
+import org.grouplens.lenskit.data.dao.UserDAO;
+import org.grouplens.lenskit.data.dao.UserEventDAO;
 import org.grouplens.lenskit.data.event.Rating;
 import org.grouplens.lenskit.data.pref.Preference;
 import org.grouplens.lenskit.eval.data.DataSource;
+import org.grouplens.lenskit.eval.data.RatingWriter;
 import org.grouplens.lenskit.util.table.writer.TableWriter;
 
 import java.io.IOException;
@@ -45,7 +49,7 @@ import java.util.Random;
 public enum SubsampleMode {
     RATING {
         @Override
-        public void doSample(DataSource source, TableWriter output, double fraction, Random rng) throws IOException {
+        public void doSample(DataSource source, RatingWriter output, double fraction, Random rng) throws IOException {
             List<Rating> ratings = Cursors.makeList(source.getEventDAO().streamEvents(Rating.class));
             final int n = ratings.size();
             final int m = (int)(fraction * n);
@@ -53,13 +57,13 @@ public enum SubsampleMode {
                 int j = rng.nextInt(n-1-i) + i;
                 final Rating rating = ratings.get(j);
                 ratings.set(j, ratings.get(i));        
-                writeRating(output, rating);     
+                output.writeRating(rating);
             }
         }
     },
     ITEM {
         @Override
-        public void doSample(DataSource source, TableWriter output, double fraction, Random rng) throws IOException {
+        public void doSample(DataSource source, RatingWriter output, double fraction, Random rng) throws IOException {
             ItemDAO idao = source.getItemDAO();
             ItemEventDAO edao = source.getItemEventDAO();
             LongArrayList itemList = new LongArrayList(idao.getItemIds());
@@ -70,15 +74,15 @@ public enum SubsampleMode {
             while (iter.hasNext()) {
                 final long item = iter.nextLong();
                 List<Rating> events = edao.getEventsForItem(item, Rating.class);
-                for (Rating rating: events) {
-                    writeRating(output, rating);
+                for (Rating rating: CollectionUtils.fast(events)) {
+                    output.writeRating(rating);
                 }
             }
         }
     },
     USER {
         @Override
-        public void doSample(DataSource source, TableWriter output, double fraction, Random rng) throws IOException {
+        public void doSample(DataSource source, RatingWriter output, double fraction, Random rng) throws IOException {
             UserDAO udao = source.getUserDAO();
             UserEventDAO edao = source.getUserEventDAO();
             LongArrayList userList = new LongArrayList(udao.getUserIds());
@@ -89,8 +93,8 @@ public enum SubsampleMode {
             while (iter.hasNext()) {
                 final long user = iter.nextLong();
                 List<Rating> events = edao.getEventsForUser(user, Rating.class);
-                for (Rating rating: events) {
-                    writeRating(output, rating);
+                for (Rating rating: CollectionUtils.fast(events)) {
+                    output.writeRating(rating);
                 }
             }
         }
@@ -103,25 +107,7 @@ public enum SubsampleMode {
      * @param source The DAO of the data source file
      * @param output The table output to output the rating
      * @param fraction The fraction of data to keep.
-     * @throws org.grouplens.lenskit.eval.TaskExecutionException
-     *          Any error
+     * @throws IOException if there is an error sampling the data set.
      */
-    public abstract void doSample(DataSource source, TableWriter output, double fraction, Random rng) throws IOException;
-
-    /**
-     * Writing a rating event to the file using table output
-     *
-     * @param output The table output to output the rating
-     * @param rating The rating event to output
-     * @throws IOException The output IO error
-     */
-    private static void writeRating(TableWriter output, Rating rating) throws IOException {
-        String[] row = new String[4];
-        row[0] = Long.toString(rating.getUserId());
-        row[1] = Long.toString(rating.getItemId());
-        Preference pref = rating.getPreference();
-        row[2] = pref != null ? Double.toString(pref.getValue()) : "NaN";
-        row[3] = Long.toString(rating.getTimestamp());
-        output.writeRow(row);
-    }
+    public abstract void doSample(DataSource source, RatingWriter output, double fraction, Random rng) throws IOException;
 }

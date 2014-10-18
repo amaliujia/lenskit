@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,11 +20,14 @@
  */
 package org.grouplens.lenskit.util;
 
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
+import it.unimi.dsi.fastutil.longs.LongSets;
+import org.grouplens.lenskit.collections.CollectionUtils;
 import org.grouplens.lenskit.scored.ScoredId;
 import org.grouplens.lenskit.scored.ScoredIdListBuilder;
 import org.grouplens.lenskit.scored.ScoredIds;
 import org.grouplens.lenskit.vectors.MutableSparseVector;
-import org.grouplens.lenskit.vectors.Vectors;
 
 import java.util.Collections;
 import java.util.List;
@@ -73,6 +76,22 @@ public final class UnlimitedScoredItemAccumulator implements ScoredItemAccumulat
             return MutableSparseVector.create();
         }
 
-        return Vectors.fromScoredIds(finish());
+        MutableSparseVector vec = scores.buildVector().mutableCopy();
+        scores.clear();
+        scores = null;
+        return vec;
+    }
+
+    @Override
+    public LongSet finishSet() {
+        if (scores == null) {
+            return LongSets.EMPTY_SET;
+        }
+
+        LongSet set = new LongOpenHashSet(scores.size());
+        for (ScoredId id: CollectionUtils.fast(finish())) {
+            set.add(id.getId());
+        }
+        return set;
     }
 }

@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -33,7 +33,6 @@ import org.grouplens.lenskit.vectors.SparseVector;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Qualifier;
-import javax.inject.Singleton;
 import java.io.Serializable;
 import java.lang.annotation.*;
 import java.util.Collection;
@@ -44,7 +43,6 @@ import java.util.Collection;
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
 @Shareable
-@Singleton
 public class ConstantItemScorer implements ItemScorer, Serializable {
     /**
      * Parameter: the value used by the constant scorer.

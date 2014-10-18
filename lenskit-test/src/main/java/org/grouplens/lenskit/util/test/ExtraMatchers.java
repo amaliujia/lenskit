@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -22,6 +22,10 @@ package org.grouplens.lenskit.util.test;
 
 import org.hamcrest.Matcher;
 
+import java.io.File;
+
+import static org.hamcrest.Matchers.equalTo;
+
 /**
  * Entry point for extra matchers used by LensKit tests.
  */
@@ -34,5 +38,17 @@ public final class ExtraMatchers {
      */
     public static Matcher<Double> notANumber() {
         return new NotANumberMatcher();
+    }
+
+    public static Matcher<File> existingFile() {
+        return new FileExistsMatcher();
+    }
+
+    public static Matcher<File> lineCount(int n) {
+        return hasLineCount(equalTo(n));
+    }
+
+    public static Matcher<File> hasLineCount(Matcher<? extends Integer> m) {
+        return new LineCountMatcher(m);
     }
 }

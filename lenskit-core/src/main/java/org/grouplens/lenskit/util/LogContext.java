@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -36,7 +36,7 @@ public class LogContext {
      * Set a key in the MDC environment.
      * @param key The key to set.
      * @param value The key's value.
-     * @see {@link MDC#put(String, String)}
+     * @see MDC#put(String, String)
      */
     public void put(String key, String value) {
         MDC.put(key, value);

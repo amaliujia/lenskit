@@ -1,0 +1,168 @@
+/*
+ * Build system for LensKit, and open-source recommender systems toolkit.
+ * Copyright 2010-2014 Regents of the University of Minnesota and contributors
+ * Work on LensKit has been funded by the National Science Foundation under
+ * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * - Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ * - Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in the
+ *   documentation and/or other materials provided with the
+ *   distribution.
+ *
+ * - Neither the name of the University of Minnesota nor the names of
+ *   its contributors may be used to endorse or promote products derived
+ *   from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
+ * This build script contains code for uploading to Maven.
+ */
+
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            url 'https://oss.sonatype.org/content/repositories/snapshots/'
+        }
+    }
+    dependencies {
+        classpath 'net.elehack.gradle:gradle-util:0.1-SNAPSHOT'
+    }
+}
+
+import net.elehack.gradle.util.*
+
+apply plugin: 'maven'
+apply plugin: 'signing'
+
+class ProjectMeta {
+    def String name
+    def String description
+    def String packaging = 'jar'
+
+    def call(Closure block) {
+        ClosureUtil.configure(this, block)
+    }
+}
+extensions.create('meta', ProjectMeta)
+
+task sourcesJar(type: Jar) {
+    from sourceSets.main.allSource
+    classifier = 'sources'
+}
+
+task javadocJar(type: Jar) {
+    from javadoc
+    classifier = 'javadoc'
+}
+
+artifacts {
+    archives sourcesJar, javadocJar
+}
+
+signing {
+    signatories = new GnuPGSignatoryProvider()
+    required {
+        !version.endsWith('SNAPSHOT') && gradle.taskGraph.hasTask('uploadArchives')
+    }
+    sign configurations.archives
+}
+
+install {
+    def installUrl = project.getConfigProperty('install.url', null)
+    if (installUrl != null) {
+        logger.info 'installing to $installUrl'
+        repositories.clear()
+        repositories {
+            mavenDeployer {
+                repository(url: rootProject.uri(installUrl))
+            }
+        }
+    }
+}
+
+uploadArchives {
+    repositories.mavenDeployer {
+        def user = System.getenv('DEPLOY_USER') ?: project.getConfigProperty('deploy.user', null)
+        def password = System.getenv('DEPLOY_PASSWORD') ?: project.getConfigProperty('deploy.password', null)
+
+        def deployUrl = project.getConfigProperty('deploy.url', null)
+        if (deployUrl != null) {
+            deployUrl = rootProject.uri(deployUrl)
+        }
+        repository(url: deployUrl ?: 'https://oss.sonatype.org/service/local/staging/deploy/maven2/') {
+            if (user != null && password != null) {
+                authentication(userName: user, password: password)
+            }
+        }
+
+        if (deployUrl == null) {
+            snapshotRepository(url: 'https://oss.sonatype.org/content/repositories/snapshots/') {
+                if (user != null && password != null) {
+                    authentication(userName: user, password: password)
+                }
+            }
+        }
+
+        beforeDeployment { deploy ->
+            signing.signPom(deploy)
+        }
+    }
+    // allow deploy to be skipped on the command line
+    onlyIf {
+        !(project.getConfigProperty('deploy.skip', 'false').toBoolean())
+    }
+}
+
+rootProject.ciPublish.dependsOn uploadArchives
+
+// set up the Maven metadata at the end of configuration
+afterEvaluate {
+    uploadArchives.repositories.mavenDeployer.pom.project {
+        name meta.name
+        packaging 'jar'
+        // optionally artifactId can be defined here
+        description meta.description
+        url 'http://lenskit.grouplens.org'
+
+        scm {
+            connection 'scm:git:http://github.com/grouplens/lenskit.git'
+            developerConnection 'scm:git:git@github.com:grouplens/lenskit.git'
+            url 'http://github.com/grouplens/lenskit'
+        }
+
+        licenses {
+            license {
+                name 'GNU Lesser General Public License version 2.1 or later'
+                url 'https://www.gnu.org/licenses/lgpl-2.1.txt'
+            }
+        }
+
+        developers {
+            developer {
+                id 'ekstrand'
+                name 'Michael Ekstrand'
+                email 'ekstrand@txstate.edu'
+            }
+        }
+    }
+}

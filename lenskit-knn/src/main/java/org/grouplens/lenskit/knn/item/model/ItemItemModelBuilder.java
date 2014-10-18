@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,13 +20,12 @@
  */
 package org.grouplens.lenskit.knn.item.model;
 
-import com.google.common.base.Preconditions;
-import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongIterator;
-import it.unimi.dsi.fastutil.longs.LongSortedSet;
+import com.google.common.base.Stopwatch;
+import it.unimi.dsi.fastutil.longs.*;
+import org.grouplens.lenskit.collections.CollectionUtils;
 import org.grouplens.lenskit.core.Transient;
 import org.grouplens.lenskit.knn.item.ItemSimilarity;
+import org.grouplens.lenskit.knn.item.ItemSimilarityThreshold;
 import org.grouplens.lenskit.knn.item.ModelSize;
 import org.grouplens.lenskit.scored.ScoredId;
 import org.grouplens.lenskit.transform.threshold.Threshold;
@@ -41,6 +40,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Build an item-item CF model from rating data.
@@ -54,103 +54,102 @@ public class ItemItemModelBuilder implements Provider<ItemItemModel> {
     private static final Logger logger = LoggerFactory.getLogger(ItemItemModelBuilder.class);
 
     private final ItemSimilarity itemSimilarity;
-    private final ItemItemBuildContextFactory contextFactory;
+    private final ItemItemBuildContext buildContext;
     private final Threshold threshold;
+    private final NeighborIterationStrategy neighborStrategy;
     private final int modelSize;
 
     @Inject
     public ItemItemModelBuilder(@Transient ItemSimilarity similarity,
-                                @Transient ItemItemBuildContextFactory ctxFactory,
-                                @Transient Threshold thresh,
+                                @Transient ItemItemBuildContext context,
+                                @Transient @ItemSimilarityThreshold Threshold thresh,
+                                @Transient NeighborIterationStrategy nbrStrat,
                                 @ModelSize int size) {
         itemSimilarity = similarity;
-        contextFactory = ctxFactory;
+        buildContext = context;
         threshold = thresh;
+        neighborStrategy = nbrStrat;
         modelSize = size;
     }
 
     @Override
     public SimilarityMatrixModel get() {
         logger.debug("building item-item model");
+        logger.debug("using similarity function {}", itemSimilarity);
+        logger.debug("similarity function is {}",
+                     itemSimilarity.isSparse() ? "sparse" : "non-sparse");
+        logger.debug("similarity function is {}",
+                     itemSimilarity.isSymmetric() ? "symmetric" : "non-symmetric");
 
-        ItemItemBuildContext buildContext = contextFactory.buildContext();
-        Accumulator accumulator = new Accumulator(buildContext.getItems(), threshold, modelSize);
+        LongSortedSet allItems = buildContext.getItems();
 
-        for (long itemId1 : buildContext.getItems()) {
+        Long2ObjectMap<ScoredItemAccumulator> rows = makeAccumulators(allItems);
+
+        final int nitems = allItems.size();
+        LongIterator outer = allItems.iterator();
+
+        Stopwatch timer = Stopwatch.createStarted();
+        int ndone = 0;
+        while (outer.hasNext()) {
+            ndone += 1;
+            final long itemId1 = outer.nextLong();
+            if (logger.isTraceEnabled()) {
+                logger.trace("computing similarities for item {} ({} of {})",
+                             itemId1, ndone, nitems);
+            }
             SparseVector vec1 = buildContext.itemVector(itemId1);
 
-            LongIterator itemIter;
-            if (itemSimilarity.isSparse()) {
-                if (itemSimilarity.isSymmetric()) {
-                    itemIter = buildContext.getUserItems(vec1.keySet()).iterator(itemId1);
-                } else {
-                    itemIter = buildContext.getUserItems(vec1.keySet()).iterator();
-                }
-            } else {
-                if (itemSimilarity.isSymmetric()) {
-                    itemIter = buildContext.getItems().iterator(itemId1);
-                } else {
-                    itemIter = buildContext.getItems().iterator();
-                }
-            }
+            LongIterator itemIter = neighborStrategy.neighborIterator(buildContext, itemId1,
+                                                                      itemSimilarity.isSymmetric());
 
+            ScoredItemAccumulator row = rows.get(itemId1);
             while (itemIter.hasNext()) {
                 long itemId2 = itemIter.nextLong();
                 if (itemId1 != itemId2) {
                     SparseVector vec2 = buildContext.itemVector(itemId2);
                     double sim = itemSimilarity.similarity(itemId1, vec1, itemId2, vec2);
-                    accumulator.put(itemId1, itemId2, sim);
-                    if (itemSimilarity.isSymmetric()) {
-                        accumulator.put(itemId2, itemId1, sim);
+                    if (threshold.retain(sim)) {
+                        row.put(itemId2, sim);
+                        if (itemSimilarity.isSymmetric()) {
+                            rows.get(itemId2).put(itemId1, sim);
+                        }
                     }
                 }
             }
-        }
 
-        return accumulator.build();
+            if (logger.isDebugEnabled() && ndone % 100 == 0) {
+                logger.debug("computed {} of {} model rows ({}s/row)",
+                             ndone, nitems,
+                             String.format("%.3f", timer.elapsed(TimeUnit.MILLISECONDS) * 0.001 / ndone));
+            }
+        }
+        timer.stop();
+        logger.info("built model for {} items in {}", ndone, timer);
+
+        return new SimilarityMatrixModel(finishRows(rows));
     }
 
-    static class Accumulator {
-
-        private final Threshold threshold;
-        private Long2ObjectMap<ScoredItemAccumulator> rows;
-        private final LongSortedSet itemUniverse;
-
-        public Accumulator(LongSortedSet entities, Threshold threshold, int modelSize) {
-            logger.debug("Using simple accumulator with modelSize {} for {} items", modelSize, entities.size());
-            this.threshold = threshold;
-            itemUniverse = entities;
-            rows = new Long2ObjectOpenHashMap<ScoredItemAccumulator>(entities.size());
-
-            for (long itemId : itemUniverse) {
-               if (modelSize == 0) {
-                   rows.put(itemId, new UnlimitedScoredItemAccumulator());
-               } else {
-                   rows.put(itemId, new TopNScoredItemAccumulator(modelSize));
-               }
+    private Long2ObjectMap<ScoredItemAccumulator> makeAccumulators(LongSet items) {
+        Long2ObjectMap<ScoredItemAccumulator> rows = new Long2ObjectOpenHashMap<ScoredItemAccumulator>(items.size());
+        LongIterator iter = items.iterator();
+        while (iter.hasNext()) {
+            long item = iter.nextLong();
+            ScoredItemAccumulator accum;
+            if (modelSize == 0) {
+                accum = new UnlimitedScoredItemAccumulator();
+            } else {
+                accum = new TopNScoredItemAccumulator(modelSize);
             }
+            rows.put(item, accum);
         }
+        return rows;
+    }
 
-        public void put(long i, long j, double sim) {
-            Preconditions.checkState(rows != null, "model already built");
-
-            if (!threshold.retain(sim)) {
-                return;
-            }
-
-            ScoredItemAccumulator q = rows.get(i);
-            q.put(j, sim);
+    private Long2ObjectMap<List<ScoredId>> finishRows(Long2ObjectMap<ScoredItemAccumulator> rows) {
+        Long2ObjectMap<List<ScoredId>> results = new Long2ObjectOpenHashMap<List<ScoredId>>(rows.size());
+        for (Long2ObjectMap.Entry<ScoredItemAccumulator> e: CollectionUtils.fast(rows.long2ObjectEntrySet())) {
+            results.put(e.getLongKey(), e.getValue().finish());
         }
-
-        public SimilarityMatrixModel build() {
-            Long2ObjectMap<List<ScoredId>> data = new Long2ObjectOpenHashMap<List<ScoredId>>(rows.size());
-            for (Long2ObjectMap.Entry<ScoredItemAccumulator> row : rows.long2ObjectEntrySet()) {
-                List<ScoredId> similarities = row.getValue().finish();
-                data.put(row.getLongKey(), similarities);
-            }
-            SimilarityMatrixModel model = new SimilarityMatrixModel(itemUniverse, data);
-            rows = null;  // Mark that this model has already been built.
-            return model;
-        }
+        return results;
     }
 }

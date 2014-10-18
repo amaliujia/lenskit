@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -23,23 +23,23 @@ package org.grouplens.lenskit.eval.results;
 import org.grouplens.lenskit.vectors.SparseVector;
 
 /**
- * Accumulates the results of a single test pass on a single algorithm.
+ * Accumulates the results of a single test pass on a single algorithmInfo.
  *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
 public interface AlgorithmTestAccumulator {
     /**
-     * Start the algorithm's build timer.
+     * Start the algorithmInfo's build timer.
      */
     void startBuildTimer();
 
     /**
-     * Stop the algorithm's build timer.
+     * Stop the algorithmInfo's build timer.
      */
     void finishBuild();
 
     /**
-     * Start the algorithm's test timer.
+     * Start the algorithmInfo's test timer.
      */
     void startTestTimer();
 

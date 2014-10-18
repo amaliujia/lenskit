@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -25,20 +25,23 @@ package org.grouplens.lenskit.collections;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Iterators;
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.longs.LongCollection;
-import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import org.apache.commons.lang3.reflect.MethodUtils;
+import org.grouplens.lenskit.cursors.Cursor;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.AbstractCollection;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
 
 import static it.unimi.dsi.fastutil.longs.Long2DoubleMap.FastEntrySet;
 
@@ -64,13 +67,15 @@ public final class CollectionUtils {
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static <E> Iterable<E> fast(final Iterable<E> iter) {
-        if (iter instanceof FastCollection) {
+        if (iter instanceof FastIterable) {
             return new Iterable<E>() {
                 @Override
                 public Iterator<E> iterator() {
-                    return ((FastCollection) iter).fastIterator();
+                    return ((FastIterable) iter).fastIterator();
                 }
             };
+        } else if (iter instanceof Cursor) {
+            return ((Cursor<E>) iter).fast();
         } else {
             Optional<Method> fastMethod = fastIteratorMethods.getUnchecked(iter.getClass());
             if (fastMethod.isPresent()) {
@@ -91,6 +96,21 @@ public final class CollectionUtils {
                 return iter;
             }
         }
+    }
+
+    /**
+     * Fast-aware filter-and-limit operation, filtering an iterable.  If the underlying iterable
+     * does not support fast iteration, then the returned iterable's fast iteration will fall back
+     * to ordinary iteration.
+     *
+     * @param iter The iterable to filter and limit.
+     * @param pred The predicate for filtering.
+     * @param limit The maximum number of items to return (negative for unlimited).
+     * @param <E> The type of data in the iterable.
+     * @return A fast iterable filtering and limiting.
+     */
+    public static <E> FastIterable<E> fastFilterAndLimit(Iterable<E> iter, Predicate<? super E> pred, int limit) {
+        return new FilteringFastIterable<E>(iter, pred, limit);
     }
 
     /**
@@ -136,7 +156,9 @@ public final class CollectionUtils {
      *
      * @param <E> The type of fast collection.
      * @return An empty fast collection.
+     * @deprecated Just use a standard empty collection.
      */
+    @Deprecated
     public static <E> FastCollection<E> emptyFastCollection() {
         return new EmptyFastCollection<E>();
     }

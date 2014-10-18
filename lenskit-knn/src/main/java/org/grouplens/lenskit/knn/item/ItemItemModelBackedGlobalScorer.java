@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,13 +20,12 @@
  */
 package org.grouplens.lenskit.knn.item;
 
-import java.util.Collection;
-
 import it.unimi.dsi.fastutil.longs.LongSet;
-
 import org.grouplens.grapht.annotation.DefaultImplementation;
 import org.grouplens.lenskit.GlobalItemScorer;
 import org.grouplens.lenskit.knn.item.model.ItemItemModel;
+
+import java.util.Collection;
 
 /**
  * The  global scorer for the global recommendation backed by a item-item model.

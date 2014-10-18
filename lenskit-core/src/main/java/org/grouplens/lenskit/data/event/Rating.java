@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -26,6 +26,11 @@ import org.grouplens.lenskit.data.pref.Preference;
 
 /**
  * A rating is an expression of preference for an item by a user.
+ *
+ * <p>Ratings are equal if they have the same user, item, preference and timestamp.  The hash code
+ * of a rating is the hash code of its preference (if it has one), or the user and item ID.
+ * Timestamp is <em>ignored</em> in the hash code.  See {@link Ratings#equals(Rating, Rating)} and
+ * {@link Ratings#hashRating(Rating)}.</p>
  *
  * @see Ratings
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>

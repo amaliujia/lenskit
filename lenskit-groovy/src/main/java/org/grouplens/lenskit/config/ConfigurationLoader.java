@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -24,8 +24,10 @@ import com.google.common.base.Preconditions;
 import groovy.lang.*;
 import org.codehaus.groovy.control.CompilerConfiguration;
 import org.codehaus.groovy.control.customizers.ImportCustomizer;
+import org.grouplens.grapht.util.ClassLoaders;
 import org.grouplens.lenskit.core.LenskitConfiguration;
 import org.grouplens.lenskit.core.RecommenderConfigurationException;
+import org.grouplens.lenskit.util.ClassDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,14 +47,14 @@ public class ConfigurationLoader {
     private final ClassLoader classLoader;
     private final GroovyShell shell;
     private final Binding binding;
+    private final ClassDirectory directory;
     private int scriptNumber;
 
     /**
      * Construct a new configuration loader. It uses the current thread's class loader.
-     * @review Is this the classloader we should use?
      */
     public ConfigurationLoader() {
-        this(Thread.currentThread().getContextClassLoader());
+        this(ClassLoaders.inferDefault(ConfigurationLoader.class));
     }
 
     /**
@@ -68,6 +70,11 @@ public class ConfigurationLoader {
         imports.addStarImports("org.grouplens.lenskit");
         config.addCompilationCustomizers(imports);
         shell = new GroovyShell(loader, binding, config);
+        directory = ClassDirectory.forClassLoader(loader);
+    }
+
+    public ClassDirectory getDirectory() {
+        return directory;
     }
 
     private LenskitConfigScript loadScript(GroovyCodeSource source) throws RecommenderConfigurationException {

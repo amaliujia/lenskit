@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -25,16 +25,16 @@
  * org.grouplens.lenskit.core.LenskitConfiguration LensKit configurations} from configuration files
  * written using a Groovy-based DSL.  For example, the following:
  * </p>
- * <code><pre>
+ * <pre>{@code
  * // configure the item scorer
  * bind ItemScorer to ItemItemScorer
- * // set up a baseline predictor
- * bind BaselinePredictor to ItemUserMeanPredictor
+ * // set up a baseline scorer
+ * bind (BaselineScorer, ItemScorer) to ItemMeanRatingPredictor
  * // use the baseline for normalizing user ratings
  * bind UserVectorNormalizer to BaselineSubtractingUserVectorNormalizer
  * // the default neighborhood size is 20, so the next line isn't technically needed
  * set NeighborhoodSize to 20
- * </pre></code>
+ * }</pre>
  * <p>
  * See {@link ConfigHelpers} for entry points to quickly load configurations, and
  * {@link ConfigurationLoader} for more control over the configuration load process.

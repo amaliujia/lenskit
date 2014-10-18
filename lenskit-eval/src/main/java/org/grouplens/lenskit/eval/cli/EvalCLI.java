@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -23,17 +23,15 @@ package org.grouplens.lenskit.eval.cli;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
-import org.apache.tools.ant.Target;
 import org.codehaus.groovy.runtime.StackTraceUtils;
-import org.grouplens.lenskit.eval.TaskExecutionException;
 import org.grouplens.lenskit.eval.EvalProject;
+import org.grouplens.lenskit.eval.TaskExecutionException;
 import org.grouplens.lenskit.eval.script.EvalScriptEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
@@ -42,20 +40,11 @@ import java.util.concurrent.ExecutionException;
  *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  * @since 0.8
+ * @deprecated Use {@code lenskit eval} from the {@code lenskit-cli} package.
  */
+@Deprecated
 public class EvalCLI {
     private static final Logger logger = LoggerFactory.getLogger(EvalCLI.class);
-
-    /**
-     * Run the evaluator from the command line.
-     *
-     * @param args The command line arguments to the evaluator.
-     */
-    public static void main(String[] args) {
-        EvalCLIOptions options = EvalCLIOptions.parse(args);
-        EvalCLI cli = new EvalCLI(options);
-        cli.run();
-    }
 
     private final EvalCLIOptions options;
 
@@ -64,13 +53,14 @@ public class EvalCLI {
     }
 
     public void run() {
+        logger.warn("lenskit-eval is deprecated, use lenskit eval instead");
         ClassLoader loader = options.getClassLoader();
         EvalScriptEngine engine = new EvalScriptEngine(loader, options.getProperties());
 
         File f = options.getScriptFile();
         if (!f.exists()) {
             logger.error("script file {} does not exist", f);
-            System.err.format("%s: file does not exist\n", f);
+            System.err.format("%s: file does not exist%n", f);
             System.err.println("lenskit-eval requires an eval script to execute (default: eval.groovy)");
             System.err.println("run lenskit-eval --help for more information");
             System.exit(1);
@@ -95,6 +85,7 @@ public class EvalCLI {
                                  targets);
                     System.exit(2);
                 }
+                project.executeTarget(dft);
             } else {
                 project.executeTargets(options.getArgs());
             }
@@ -121,5 +112,17 @@ public class EvalCLI {
             }
             System.exit(2);
         }
+    }
+
+    /**
+     * Run the evaluator from the command line.
+     *
+     * @param args The command line arguments to the evaluator.
+     */
+    @SuppressWarnings("deprecation")
+    public static void main(String[] args) {
+        EvalCLIOptions options = EvalCLIOptions.parse(args);
+        EvalCLI cli = new EvalCLI(options);
+        cli.run();
     }
 }

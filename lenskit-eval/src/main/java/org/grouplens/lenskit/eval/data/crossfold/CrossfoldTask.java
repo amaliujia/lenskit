@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -22,31 +22,37 @@ package org.grouplens.lenskit.eval.data.crossfold;
 
 import com.google.common.collect.Lists;
 import com.google.common.io.Closer;
-import it.unimi.dsi.fastutil.longs.*;
+import com.google.common.io.Files;
+import it.unimi.dsi.fastutil.longs.Long2IntMap;
+import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongArrays;
+import it.unimi.dsi.fastutil.longs.LongSet;
+import org.grouplens.lenskit.collections.CollectionUtils;
 import org.grouplens.lenskit.cursors.Cursor;
 import org.grouplens.lenskit.cursors.Cursors;
-import org.grouplens.lenskit.data.event.Event;
-import org.grouplens.lenskit.data.history.UserHistory;
 import org.grouplens.lenskit.data.dao.UserDAO;
+import org.grouplens.lenskit.data.dao.packed.BinaryFormatFlag;
+import org.grouplens.lenskit.data.event.Event;
 import org.grouplens.lenskit.data.event.Rating;
+import org.grouplens.lenskit.data.history.UserHistory;
 import org.grouplens.lenskit.data.pref.Preference;
 import org.grouplens.lenskit.eval.AbstractTask;
 import org.grouplens.lenskit.eval.TaskExecutionException;
 import org.grouplens.lenskit.eval.data.CSVDataSourceBuilder;
 import org.grouplens.lenskit.eval.data.DataSource;
+import org.grouplens.lenskit.eval.data.RatingWriter;
+import org.grouplens.lenskit.eval.data.RatingWriters;
+import org.grouplens.lenskit.eval.data.pack.PackedDataSourceBuilder;
 import org.grouplens.lenskit.eval.data.traintest.GenericTTDataBuilder;
 import org.grouplens.lenskit.eval.data.traintest.TTDataSet;
 import org.grouplens.lenskit.util.io.UpToDateChecker;
-import org.grouplens.lenskit.util.table.writer.CSVWriter;
 import org.grouplens.lenskit.util.table.writer.TableWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * The command to build and run a crossfold on the data source file and output the partition files
@@ -63,9 +69,10 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
     private Order<Rating> order = new RandomOrder<Rating>();
     private PartitionAlgorithm<Rating> partition = new HoldoutNPartition<Rating>(10);
     private boolean isForced;
-    private boolean splitUsers = true;
-
-    private boolean cacheOutput = true;
+    private CrossfoldMethod method = CrossfoldMethod.PARTITION_USERS;
+    private int sampleSize = 1000;
+    private boolean isolate = false;
+    private boolean writeTimestamps = true;
 
     public CrossfoldTask() {
         super(null);
@@ -83,6 +90,21 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
      */
     public CrossfoldTask setPartitions(int partition) {
         partitionCount = partition;
+        return this;
+    }
+
+    public int getSampleSize() {
+        return sampleSize;
+    }
+
+    /**
+     * Set the sample size (# of users sampled per partition).  Only meaningful when the method is
+     * {@link CrossfoldMethod#SAMPLE_USERS}.
+     * @param n The number of users to sample for each partition.
+     * @return The task (for chaining).
+     */
+    public CrossfoldTask setSampleSize(int n) {
+        sampleSize = n;
         return this;
     }
 
@@ -119,7 +141,7 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
      * @return The CrossfoldCommand object  (for chaining)
      * @see RandomOrder
      * @see TimestampOrder
-     * @see #setHoldout(double)
+     * @see #setHoldoutFraction(double)
      * @see #setHoldout(int)
      */
     public CrossfoldTask setOrder(Order<Rating> o) {
@@ -128,7 +150,8 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
     }
 
     /**
-     * Set holdout to a fixed number of items per user.
+     * Set holdout to a fixed number of items per user.  Only meaningful when the method is
+     * {@link CrossfoldMethod#PARTITION_USERS}.
      *
      * @param n The number of items to hold out from each user's profile.
      * @return The CrossfoldCommand object  (for chaining)
@@ -140,6 +163,8 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
 
     /**
      * Set holdout from using the retain part to a fixed number of items.
+     * Only meaningful when the method is
+     * {@link CrossfoldMethod#PARTITION_USERS}.
      * 
      * @param n The number of items to train data set from each user's profile.
      * @return The CrossfoldCommand object  (for chaining)
@@ -151,6 +176,8 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
 
     /**
      * Set holdout to a fraction of each user's profile.
+     * Only meaningful when the method is
+     * {@link CrossfoldMethod#PARTITION_USERS}.
      *
      * @param f The fraction of a user's ratings to hold out.
      * @return The CrossfoldCommand object  (for chaining)
@@ -183,9 +210,39 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
         isForced = force;
         return this;
     }
-    
+
+    /**
+     * Configure whether it splits per-user or per-rating.
+     *
+     * @param splitUsers {@code true} to split by users ({@link CrossfoldMethod#PARTITION_USERS}),
+     *                   {@code false} to split by rating ({@link CrossfoldMethod#PARTITION_RATINGS}).
+     * @deprecated Use {@link #setMethod(CrossfoldMethod)} instead.
+     */
+    @Deprecated
     public void setSplitUsers(boolean splitUsers) {
-        this.splitUsers = splitUsers;
+        if (splitUsers) {
+            setMethod(CrossfoldMethod.PARTITION_USERS);
+        } else {
+            setMethod(CrossfoldMethod.PARTITION_RATINGS);
+        }
+    }
+
+    /**
+     * Get the method to be used for crossfolding.
+     * @return The configured crossfold method.
+     */
+    public CrossfoldMethod getMethod() {
+        return method;
+    }
+
+    /**
+     * Set the crossfold method.  The default is {@link CrossfoldMethod#PARTITION_USERS}.
+     *
+     * @param m The crossfold method to use.
+     */
+    public CrossfoldTask setMethod(CrossfoldMethod m) {
+        method = m;
+        return this;
     }
 
     /**
@@ -196,10 +253,48 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
      * @return The command (for chaining)
      */
     public CrossfoldTask setCache(boolean on) {
-        cacheOutput = on;
+        logger.warn("crossfold cache directive is now a no-op");
         return this;
     }
-    
+
+    /**
+     * Configure whether the train-test data sets generated by this task will be isolated.  If yes,
+     * then each data set will be in its own isolation group; otherwise, they will all be in the
+     * default isolation group (the all-zero UUID).
+     * @param on {@code true} to produce isolated data sets.
+     * @return The task (for chaining).
+     */
+    public CrossfoldTask setIsolate(boolean on) {
+        isolate = on;
+        return this;
+    }
+
+    /**
+     * Query whether this task will produce isolated data sets.
+     * @return {@code true} if this task will produce isolated data sets.
+     */
+    public boolean getIsolate() {
+        return isolate;
+    }
+
+    /**
+     * Configure whether to include timestamps in the output file.
+     * @param pack {@code true} to include timestamps (the default), {@code false} otherwise.
+     * @return The task (for chaining).
+     */
+    public CrossfoldTask setWriteTimestamps(boolean pack) {
+        writeTimestamps = pack;
+        return this;
+    }
+
+    /**
+     * Query whether timestamps will be written.
+     * @return {@code true} if output will include timestamps.
+     */
+    public boolean getWriteTimestamps() {
+        return writeTimestamps;
+    }
+
     /**
      * Get the visible name of this crossfold split.
      *
@@ -278,16 +373,10 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
         return isForced || getProject().getConfig().force();
     }
 
-    public boolean getSplitUsers() {
-        return splitUsers;
-    }
-
     /**
      * Run the crossfold command. Write the partition files to the disk by reading in the source file.
      *
-     * @return List<TTDataSet> The partition files stored as a list of TTDataSet
-     * @throws org.grouplens.lenskit.eval.TaskExecutionException
-     *
+     * @return The partition files stored as a list of TTDataSet
      */
     @Override
     public List<TTDataSet> perform() throws TaskExecutionException {
@@ -336,20 +425,24 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
     protected void createTTFiles() throws IOException {
         File[] trainFiles = getFiles(getTrainPattern());
         File[] testFiles = getFiles(getTestPattern());
-        TableWriter[] trainWriters = new TableWriter[partitionCount];
-        TableWriter[] testWriters = new TableWriter[partitionCount];
+        RatingWriter[] trainWriters = new RatingWriter[partitionCount];
+        RatingWriter[] testWriters = new RatingWriter[partitionCount];
         Closer closer = Closer.create();
         try {
             for (int i = 0; i < partitionCount; i++) {
                 File train = trainFiles[i];
                 File test = testFiles[i];
-                trainWriters[i] = closer.register(CSVWriter.open(train, null));
-                testWriters[i] = closer.register(CSVWriter.open(test, null));
+                trainWriters[i] = closer.register(makeWriter(train));
+                testWriters[i] = closer.register(makeWriter(test));
             }
-            if (getSplitUsers()) {
+            switch (method) {
+            case PARTITION_USERS:
+            case SAMPLE_USERS:
                 writeTTFilesByUsers(trainWriters, testWriters);
-            } else {
+                break;
+            case PARTITION_RATINGS:
                 writeTTFilesByRatings(trainWriters, testWriters);
+                break;
             }
         } catch (Throwable th) {
             throw closer.rethrow(th);
@@ -361,35 +454,35 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
     /**
      * Write the split files by Users from the DAO using specified holdout method
      * 
+     *
      * @param trainWriters The tableWriter that write train files
      * @param testWriters  The tableWriter that writ test files
      * @throws org.grouplens.lenskit.eval.TaskExecutionException
      */
-    protected void writeTTFilesByUsers(TableWriter[] trainWriters, TableWriter[] testWriters) throws TaskExecutionException {
+    protected void writeTTFilesByUsers(RatingWriter[] trainWriters, RatingWriter[] testWriters) throws TaskExecutionException {
         logger.info("splitting data source {} to {} partitions by users",
                     getName(), partitionCount);
         Long2IntMap splits = splitUsers(source.getUserDAO());
-        Cursor<UserHistory<Event>> historyCursor = source.getUserEventDAO().streamEventsByUser();
+        Cursor<UserHistory<Rating>> historyCursor = source.getUserEventDAO().streamEventsByUser(Rating.class);
         Holdout mode = this.getHoldout();
         try {
-            for (UserHistory<Event> history : historyCursor) {
+            for (UserHistory<Rating> history : historyCursor) {
                 int foldNum = splits.get(history.getUserId());
-                // FIXME Use filtered streaming
-                List<Rating> ratings = new ArrayList<Rating>(history.filter(Rating.class));
-                final int p = mode.partition(ratings, getProject().getRandom());
+                List<Rating> ratings = new ArrayList<Rating>(history);
                 final int n = ratings.size();
 
                 for (int f = 0; f < partitionCount; f++) {
                     if (f == foldNum) {
+                        final int p = mode.partition(ratings, getProject().getRandom());
                         for (int j = 0; j < p; j++) {
-                            writeRating(trainWriters[f], ratings.get(j));
+                            trainWriters[f].writeRating(ratings.get(j));
                         }
                         for (int j = p; j < n; j++) {
-                            writeRating(testWriters[f], ratings.get(j));
+                            testWriters[f].writeRating(ratings.get(j));
                         }
                     } else {
-                        for (Rating rating : ratings) {
-                            writeRating(trainWriters[f], rating);
+                        for (Rating rating : CollectionUtils.fast(ratings)) {
+                            trainWriters[f].writeRating(rating);
                         }
                     }
                 }
@@ -405,11 +498,12 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
     /**
      * Write the split files by Ratings from the DAO
      * 
+     *
      * @param trainWriters The tableWriter that write train files
      * @param testWriters  The tableWriter that writ test files
      * @throws org.grouplens.lenskit.eval.TaskExecutionException
      */
-    protected void writeTTFilesByRatings(TableWriter[] trainWriters, TableWriter[] testWriters) throws TaskExecutionException {
+    protected void writeTTFilesByRatings(RatingWriter[] trainWriters, RatingWriter[] testWriters) throws TaskExecutionException {
         logger.info("splitting data source {} to {} partitions by ratings",
                     getName(), partitionCount);
         ArrayList<Rating> ratings = Cursors.makeList(source.getEventDAO().streamEvents(Rating.class));
@@ -420,9 +514,9 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
                 for (int f = 0; f < partitionCount; f++) {
                     int foldNum = i % partitionCount;
                     if (f == foldNum) {
-                        writeRating(testWriters[f], ratings.get(i));
+                        testWriters[f].writeRating(ratings.get(i));
                     } else {
-                        writeRating(trainWriters[f], ratings.get(i));
+                        trainWriters[f].writeRating(ratings.get(i));
                     }
                 }
             }
@@ -452,50 +546,105 @@ public class CrossfoldTask extends AbstractTask<List<TTDataSet>> {
      * Split users ids to n splits, where n is the partitionCount
      *
      * @param dao The DAO of the source file
-     * @return a map of users to partition numbers.
+     * @return a map of users to partition numbers. Users not in a partition will return -1.
      */
     protected Long2IntMap splitUsers(UserDAO dao) {
         Long2IntMap userMap = new Long2IntOpenHashMap();
-        LongArrayList users = new LongArrayList(dao.getUserIds());
-        LongLists.shuffle(users, getProject().getRandom());
-        LongListIterator iter = users.listIterator();
-        while (iter.hasNext()) {
-            final int idx = iter.nextIndex();
-            final long user = iter.nextLong();
-            userMap.put(user, idx % partitionCount);
+        userMap.defaultReturnValue(-1);
+
+        switch (method) {
+        case PARTITION_USERS:
+            partitionUsers(userMap, dao.getUserIds());
+            break;
+        case SAMPLE_USERS:
+            sampleUsers(userMap, dao.getUserIds());
+            break;
+        default:
+            throw new RuntimeException("why is splitUsers running for non-user method?");
         }
 
-        logger.info("Partitioned {} users", userMap.size());
         return userMap;
     }
-    
+
+    private void sampleUsers(Long2IntMap userMap, LongSet users) {
+        if (partitionCount * sampleSize > users.size()) {
+            logger.warn("cannot make {} disjoint samples of {} from {} users, partitioning",
+                        partitionCount, sampleSize, users.size());
+            partitionUsers(userMap, users);
+        } else {
+            logger.info("Sampling {} users into {} disjoint samples of {}",
+                        users.size(), partitionCount, sampleSize);
+            long[] userArray = users.toLongArray();
+            LongArrays.shuffle(userArray, getProject().getRandom());
+            int i = 0;
+            for (int p = 0; p < partitionCount; p++) {
+                final int start = i;
+                for (; i < userArray.length && i - start < sampleSize; i++) {
+                    userMap.put(userArray[i], p);
+                }
+            }
+        }
+    }
+
+    private void partitionUsers(Long2IntMap userMap, LongSet users) {
+        logger.info("Splititng {} users into {} partitions", users.size(), partitionCount);
+        long[] userArray = users.toLongArray();
+        LongArrays.shuffle(userArray, getProject().getRandom());
+        for (int i = 0; i < userArray.length; i++) {
+            final long user = userArray[i];
+            userMap.put(user, i % partitionCount);
+        }
+    }
+
     /**
      * Get the train-test splits as data sets.
      * 
-     * @return List<TTDataSet> The partition files stored as a list of TTDataSet
+     * @return The partition files stored as a list of TTDataSet
      */
     public List<TTDataSet> getTTFiles() {
         List<TTDataSet> dataSets = new ArrayList<TTDataSet>(partitionCount);
         File[] trainFiles = getFiles(getTrainPattern());
         File[] testFiles = getFiles(getTestPattern());
         for (int i = 0; i < partitionCount; i++) {
-            CSVDataSourceBuilder trainBuilder = new CSVDataSourceBuilder()
-                    .setDomain(source.getPreferenceDomain())
-                    .setCache(cacheOutput)
-                    .setFile(trainFiles[i]);
-            CSVDataSourceBuilder testBuilder = new CSVDataSourceBuilder()
-                    .setDomain(source.getPreferenceDomain())
-                    .setCache(cacheOutput)
-                    .setFile(testFiles[i]);
             GenericTTDataBuilder ttBuilder = new GenericTTDataBuilder(getName() + "." + i);
+            if (isolate) {
+                ttBuilder.setIsolationGroup(UUID.randomUUID());
+            }
 
-            dataSets.add(ttBuilder.setTest(testBuilder.build())
-                                  .setTrain(trainBuilder.build())
+            dataSets.add(ttBuilder.setTest(makeDataSource(testFiles[i]))
+                                  .setTrain(makeDataSource(trainFiles[i]))
                                   .setAttribute("DataSet", getName())
                                   .setAttribute("Partition", i)
                                   .build());
         }
         return dataSets;
+    }
+
+    protected RatingWriter makeWriter(File file) throws IOException {
+        Files.createParentDirs(file);
+        if (Files.getFileExtension(file.getName()).equals("pack")) {
+            EnumSet<BinaryFormatFlag> flags = BinaryFormatFlag.makeSet();
+            if (writeTimestamps) {
+                flags.add(BinaryFormatFlag.TIMESTAMPS);
+            }
+            return RatingWriters.packed(file, flags);
+        } else {
+            return RatingWriters.csv(file, writeTimestamps);
+        }
+    }
+
+    protected DataSource makeDataSource(File file) {
+        if (Files.getFileExtension(file.getName()).equals("pack")) {
+            return new PackedDataSourceBuilder()
+                    .setDomain(source.getPreferenceDomain())
+                    .setFile(file)
+                    .build();
+        } else {
+            return new CSVDataSourceBuilder()
+                    .setDomain(source.getPreferenceDomain())
+                    .setFile(file)
+                    .build();
+        }
     }
 
     @Override

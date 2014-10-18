@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,12 +20,17 @@
  */
 package org.grouplens.lenskit.transform.quantize;
 
+import mikera.vectorz.impl.ImmutableVector;
+import org.grouplens.grapht.annotation.DefaultProvider;
+
 /**
  * Quantize real values into discrete values. Used to do things like map floating point
- * ratings or predictions to discrete rating values.
+ * ratings or predictions to discrete rating values.  By default, if there is a preference
+ * domain available, a {@link PreferenceDomainQuantizer} will be used to implement this interface.
  *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
+@DefaultProvider(PreferenceDomainQuantizer.AutoProvider.class)
 public interface Quantizer {
     /**
      * Get the possible values into which this quantizer will map input values. These
@@ -34,7 +39,7 @@ public interface Quantizer {
      *
      * @return The values of the discrete bins.
      */
-    double[] getValues();
+    ImmutableVector getValues();
 
     /**
      * Get the value corresponding to a quantized value, based on the index into

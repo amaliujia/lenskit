@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -18,7 +18,6 @@
  * this program; if not, write to the Free Software Foundation, Inc., 51
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
-
 package org.grouplens.lenskit.indexes;
 
 import org.junit.Test;
@@ -27,11 +26,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertThat;
 
-/**
- * 
- * @author <a href="http://www.grouplens.org">GroupLens Research</a>
- *
- */
 public class MutableIdIndexMappingTest {
     @Test
     public void testInternId() {
@@ -49,5 +43,16 @@ public class MutableIdIndexMappingTest {
         assertThat(idx.internId(42), equalTo(0));
         assertThat(idx.internId(39), equalTo(1));
         assertThat(idx.internId(42), equalTo(0));
+    }
+
+    @Test
+    public void testImmutableCopy() {
+        MutableIdIndexMapping idx = new MutableIdIndexMapping();
+        assertThat(idx.internId(42), equalTo(0));
+        assertThat(idx.internId(39), equalTo(1));
+        IdIndexMapping imm = idx.immutableCopy();
+        assertThat(imm.getId(0), equalTo(42L));
+        assertThat(imm.getId(1), equalTo(39L));
+        assertThat(imm.getIndex(42), equalTo(0));
     }
 }

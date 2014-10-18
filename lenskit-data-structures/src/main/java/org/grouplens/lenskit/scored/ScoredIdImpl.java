@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -41,6 +41,7 @@ final class ScoredIdImpl extends AbstractScoredId implements Serializable {
     private final double score;
     @Nonnull
     private final List<SymbolValue<?>> channels;
+    @Nullable
     private transient volatile List<DoubleSymbolValue> unboxedChannels;
 
     public ScoredIdImpl(long id, double score) {
@@ -56,7 +57,11 @@ final class ScoredIdImpl extends AbstractScoredId implements Serializable {
     public ScoredIdImpl(long id, double score, @Nonnull Collection<? extends SymbolValue<?>> chans) {
         this.id = id;
         this.score = score;
-        channels = ImmutableList.copyOf(chans);
+        if (chans.isEmpty()) {
+            channels = Collections.emptyList();
+        } else {
+            channels = ImmutableList.copyOf(chans);
+        }
     }
 
     @Override
@@ -78,12 +83,13 @@ final class ScoredIdImpl extends AbstractScoredId implements Serializable {
     @Nonnull
     @Override
     public Collection<DoubleSymbolValue> getUnboxedChannels() {
-        if (unboxedChannels == null) {
-            unboxedChannels = FluentIterable.from(channels)
-                                            .filter(DoubleSymbolValue.class)
-                                            .toList();
+        List<DoubleSymbolValue> chans = unboxedChannels;
+        if (chans == null) {
+            unboxedChannels = chans = FluentIterable.from(channels)
+                                                    .filter(DoubleSymbolValue.class)
+                                                    .toList();
         }
-        return unboxedChannels;
+        return chans;
     }
 
     @SuppressWarnings("unchecked")

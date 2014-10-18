@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -21,9 +21,10 @@
 package org.grouplens.lenskit.test;
 
 import org.grouplens.lenskit.core.LenskitConfiguration;
+import org.grouplens.lenskit.data.pref.PreferenceDomain;
 import org.grouplens.lenskit.eval.EvalConfig;
 import org.grouplens.lenskit.eval.TaskExecutionException;
-import org.grouplens.lenskit.eval.algorithm.LenskitAlgorithmInstanceBuilder;
+import org.grouplens.lenskit.eval.algorithm.AlgorithmInstanceBuilder;
 import org.grouplens.lenskit.eval.data.GenericDataSource;
 import org.grouplens.lenskit.eval.metrics.predict.CoveragePredictMetric;
 import org.grouplens.lenskit.eval.metrics.predict.MAEPredictMetric;
@@ -41,7 +42,7 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.junit.Assert.assertThat;
 
 /**
- * A test suite that does cross-validation of an algorithm.
+ * A test suite that does cross-validation of an algorithmInfo.
  */
 public abstract class CrossfoldTestSuite extends ML100KTestSuite {
     @Rule
@@ -56,11 +57,11 @@ public abstract class CrossfoldTestSuite extends ML100KTestSuite {
         Properties props =  new Properties();
         props.setProperty(EvalConfig.DATA_DIR_PROPERTY, workDir.newFolder("data").getAbsolutePath());
         SimpleEvaluator evalCommand = new SimpleEvaluator(props);
-        LenskitAlgorithmInstanceBuilder algo = new LenskitAlgorithmInstanceBuilder();
+        AlgorithmInstanceBuilder algo = new AlgorithmInstanceBuilder();
         configureAlgorithm(algo.getConfig());
         evalCommand.addAlgorithm(algo);
 
-        evalCommand.addDataset(new GenericDataSource("ml-100k", dao), 5, 0.2);
+        evalCommand.addDataset(new GenericDataSource("ml-100k", dao, PreferenceDomain.fromString("[1,5]/1")), 5, 0.2);
 
         evalCommand.addMetric(new CoveragePredictMetric())
                    .addMetric(new RMSEPredictMetric())

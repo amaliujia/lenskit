@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,18 +20,15 @@
  */
 package org.grouplens.lenskit.eval.data;
 
-import org.grouplens.grapht.util.Providers;
 import org.grouplens.lenskit.data.dao.EventDAO;
 import org.grouplens.lenskit.data.pref.PreferenceDomain;
-
-import javax.inject.Provider;
 
 /**
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
 public class GenericDataSource extends AbstractDataSource {
     private String name;
-    private Provider<EventDAO> daoProvider;
+    private EventDAO dao;
     private PreferenceDomain domain;
 
     public GenericDataSource(String name, EventDAO dao) {
@@ -40,17 +37,7 @@ public class GenericDataSource extends AbstractDataSource {
 
     public GenericDataSource(String name, EventDAO dao, PreferenceDomain dom) {
         this.name = name;
-        daoProvider = Providers.of(dao);
-        domain = dom;
-    }
-
-    public GenericDataSource(String name, Provider<EventDAO> dao) {
-        this(name, dao, null);
-    }
-
-    public GenericDataSource(String name, Provider<EventDAO> dao, PreferenceDomain dom) {
-        this.name = name;
-        daoProvider = dao;
+        this.dao = dao;
         domain = dom;
     }
 
@@ -65,8 +52,8 @@ public class GenericDataSource extends AbstractDataSource {
     }
 
     @Override
-    public Provider<EventDAO> getEventDAOProvider() {
-        return daoProvider;
+    public EventDAO getEventDAO() {
+        return dao;
     }
 
     @Override

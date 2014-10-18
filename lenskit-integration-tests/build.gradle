@@ -1,0 +1,108 @@
+import org.gradle.process.internal.ExecException
+
+/*
+ * Build system for LensKit, and open-source recommender systems toolkit.
+ * Copyright 2010-2014 Regents of the University of Minnesota and contributors
+ * Work on LensKit has been funded by the National Science Foundation under
+ * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * - Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ * - Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in the
+ *   documentation and/or other materials provided with the
+ *   distribution.
+ *
+ * - Neither the name of the University of Minnesota nor the names of
+ *   its contributors may be used to endorse or promote products derived
+ *   from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+dependencies {
+    compile project(':lenskit-all')
+    compile project(':lenskit-test')
+    testRuntime project(':lenskit-cli')
+}
+
+apply plugin: 'groovy'
+
+// These tests require the MovieLens data set - arrange to download it
+ext.mlDataDir = file("$buildDir/ml-100k")
+ext.mlDataFile = file("$buildDir/ml-100k.zip")
+ext.mlDataURL = 'http://files.grouplens.org/datasets/movielens/ml-100k.zip'
+
+task fetchData(group: 'build') {
+    description "Fetch data for integration tests."
+    inputs.property 'url', mlDataURL
+    outputs.file mlDataFile
+    outputs.dir mlDataDir
+    // don't download if we're running offline
+    onlyIf { !gradle.startParameter.isOffline() }
+}
+fetchData << {
+    logger.lifecycle "This analysis makes use of the MovieLens 100K data set from GroupLens Research.  Use of this data set is restricted to non-commercial purposes and is only permitted in accordance with the license terms.  More information is available at <http://lenskit.grouplens.org/ML100K>."
+    mkdir buildDir
+    ant {
+        get src: mlDataURL, dest: mlDataFile, skipexisting: true
+        unzip(src: mlDataFile, dest: mlDataDir) {
+            mapper type: 'flatten'
+        }
+    }
+}
+
+// Configure the tests to use the data set
+test {
+    dependsOn fetchData
+    systemProperties 'lenskit.movielens.100k': mlDataDir
+    onlyIf {
+        System.getenv("SONAR_BUILD") != 'true'
+    }
+}
+
+task checkPythonInstall {
+    description 'Checks whether the Python install is valid'
+    ext.isValid = false
+
+    doLast {
+        try {
+            exec {
+                executable 'python'
+                args 'check-python-deps.py'
+            }
+            logger.info 'Your Python kit seems good'
+            isValid = true
+        } catch (IOException e) {
+            logger.warn "Cannot run Python, assuming you don't have one"
+        } catch (ExecException e) {
+            logger.warn "Python starts, but is not usable"
+        }
+    }
+}
+
+ciPrep.dependsOn checkPythonInstall
+ciPrep.doFirst {
+    if (!checkPythonInstall.isValid) {
+        logger.error 'Working Python install is required for CI'
+        throw new RuntimeException('Python is not working')
+    }
+}
+
+// import code to run the integration tests
+apply from: 'run-tests.gradle'

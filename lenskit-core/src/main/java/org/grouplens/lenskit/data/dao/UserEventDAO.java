@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -30,20 +30,32 @@ import javax.annotation.Nullable;
 /**
  * DAO to retrieve events by user.
  *
- * @since 1.3
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
+ * @since 1.3
  */
 @DefaultImplementation(PrefetchingUserEventDAO.class)
 public interface UserEventDAO {
     /**
      * Stream events grouped by user.
      *
-     * @return A cursor of user histories.
+     * @return A cursor of user histories.  If a user exists, but does not have any history, they
+     * may or may not be included depending on the DAO implementation.
      */
     Cursor<UserHistory<Event>> streamEventsByUser();
 
     /**
+     * Stream events grouped by user.
+     *
+     * @param type The type of item to look for.
+     * @return A cursor of user histories, filtered to contain events of type {@code type}.  If a
+     *         user exists, but does not have any history, they may or may not be included depending
+     *         on the DAO implementation.
+     */
+    <E extends Event> Cursor<UserHistory<E>> streamEventsByUser(Class<E> type);
+
+    /**
      * Get the events for a specific user.
+     *
      * @param user The user ID.
      * @return The user's history, or {@code null} if the user is unknown.
      */

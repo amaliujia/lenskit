@@ -1,6 +1,6 @@
 /*
  * LensKit, an open source recommender systems toolkit.
- * Copyright 2010-2013 Regents of the University of Minnesota and contributors
+ * Copyright 2010-2014 LensKit Contributors.  See CONTRIBUTORS.md.
  * Work on LensKit has been funded by the National Science Foundation under
  * grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.
  *
@@ -20,19 +20,16 @@
  */
 package org.grouplens.lenskit.eval.metrics.predict;
 
-import com.google.common.collect.ImmutableList;
-import org.grouplens.lenskit.eval.algorithm.AlgorithmInstance;
+import org.grouplens.lenskit.Recommender;
+import org.grouplens.lenskit.eval.Attributed;
 import org.grouplens.lenskit.eval.data.traintest.TTDataSet;
-import org.grouplens.lenskit.eval.metrics.AbstractTestUserMetric;
-import org.grouplens.lenskit.eval.metrics.TestUserMetricAccumulator;
+import org.grouplens.lenskit.eval.metrics.AbstractMetric;
+import org.grouplens.lenskit.eval.metrics.ResultColumn;
 import org.grouplens.lenskit.eval.traintest.TestUser;
 import org.grouplens.lenskit.vectors.SparseVector;
 import org.grouplens.lenskit.vectors.VectorEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nonnull;
-import java.util.List;
 
 import static java.lang.Math.abs;
 
@@ -40,80 +37,99 @@ import static java.lang.Math.abs;
  * Evaluate a recommender's predictions by Mean Absolute Error. In general, prefer
  * RMSE ({@link RMSEPredictMetric}) to MAE.
  *
- * <p>This evaluator computes two variants of MAE. The first is <em>by-rating<em>,
+ * <p>This evaluator computes two variants of MAE. The first is <em>by-rating</em>,
  * where the absolute error is averaged over all predictions. The second is
  * <em>by-user</em>, where the MAE is computed per-user and then averaged
  * over all users.
  *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
-public class MAEPredictMetric extends AbstractTestUserMetric {
+public class MAEPredictMetric extends AbstractMetric<MAEPredictMetric.Context, MAEPredictMetric.AggregateResult, MAEPredictMetric.UserResult> {
     private static final Logger logger = LoggerFactory.getLogger(MAEPredictMetric.class);
-    private static final ImmutableList<String> COLUMNS = ImmutableList.of("MAE", "MAE.ByUser");
-    private static final ImmutableList<String> USER_COLUMNS = ImmutableList.of("MAE");
 
-    @Override
-    public TestUserMetricAccumulator makeAccumulator(AlgorithmInstance algo, TTDataSet ds) {
-        return new Accum();
+    public MAEPredictMetric() {
+        super(AggregateResult.class, UserResult.class);
     }
 
     @Override
-    public List<String> getColumnLabels() {
-        return COLUMNS;
+    public Context createContext(Attributed algo, TTDataSet ds, Recommender rec) {
+        return new Context();
     }
 
     @Override
-    public List<String> getUserColumnLabels() {
-        return USER_COLUMNS;
+    public UserResult doMeasureUser(TestUser user, Context context) {
+        SparseVector ratings = user.getTestRatings();
+        SparseVector predictions = user.getPredictions();
+        if (predictions == null) {
+            return null;
+        }
+        double err = 0;
+        int n = 0;
+        for (VectorEntry e : predictions.fast()) {
+            if (Double.isNaN(e.getValue())) {
+                continue;
+            }
+
+            err += abs(e.getValue() - ratings.get(e.getKey()));
+            n++;
+        }
+
+        if (n > 0) {
+            double mae = err / n;
+            context.addUser(n, err, mae);
+            return new UserResult(mae);
+        } else {
+            return null;
+        }
     }
 
-    class Accum implements TestUserMetricAccumulator {
+    @Override
+    protected AggregateResult getTypedResults(Context context) {
+        return context.finish();
+    }
+
+    public static class UserResult {
+        @ResultColumn("MAE")
+        public final double mae;
+
+        public UserResult(double err) {
+            mae = err;
+        }
+    }
+
+    public static class AggregateResult {
+        @ResultColumn("MAE.ByUser")
+        public final double userMAE;
+        @ResultColumn("MAE.ByRating")
+        public final double globalMAE;
+
+        public AggregateResult(double umae, double gmae) {
+            userMAE = umae;
+            globalMAE = gmae;
+        }
+    }
+
+    public class Context {
         private double totalError = 0;
         private double totalUserError = 0;
         private int nratings = 0;
         private int nusers = 0;
 
-        @Nonnull
-        @Override
-        public Object[] evaluate(TestUser user) {
-            SparseVector ratings = user.getTestRatings();
-            SparseVector predictions = user.getPredictions();
-            if (predictions == null) {
-                return userRow();
-            }
-            double err = 0;
-            int n = 0;
-            for (VectorEntry e : predictions.fast()) {
-                if (Double.isNaN(e.getValue())) {
-                    continue;
-                }
-
-                err += abs(e.getValue() - ratings.get(e.getKey()));
-                n++;
-            }
-
-            if (n > 0) {
-                totalError += err;
-                nratings += n;
-                double errRate = err / n;
-                totalUserError += errRate;
-                nusers += 1;
-                return userRow(errRate);
-            } else {
-                return userRow();
-            }
+        public void addUser(int nr, double sae, double mae) {
+            totalError += sae;
+            totalUserError += mae;
+            nratings += nr;
+            nusers += 1;
         }
 
-        @Nonnull
-        @Override
-        public Object[] finalResults() {
+        public AggregateResult finish() {
             if (nratings > 0) {
                 double v = totalError / nratings;
                 double uv = totalUserError / nusers;
                 logger.info("MAE: {}", v);
-                return finalRow(v, uv);
+                return new AggregateResult(uv, v);
             } else {
-                return finalRow();
+                return null;
             }
         }
 
