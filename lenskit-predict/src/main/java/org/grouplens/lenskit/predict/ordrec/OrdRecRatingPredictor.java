@@ -209,7 +209,7 @@ public class OrdRecRatingPredictor extends AbstractRatingPredictor {
             double dt1;
             // n is the number of iteration;
             for (int j = 0; j < iterationCount; j++ ) {
-                for (VectorEntry rating: ratings.fast()) {
+                for (VectorEntry rating: ratings) {
                     long iid = rating.getKey();
                     double score = scores.get(iid);
                     int r = quantizer.index(rating.getValue());
@@ -333,7 +333,7 @@ public class OrdRecRatingPredictor extends AbstractRatingPredictor {
             distChannel = predictions.addChannel(RATING_PROBABILITY_CHANNEL);
         }
 
-        for (VectorEntry e: predictions.fast(VectorEntry.State.EITHER)) {
+        for (VectorEntry e: predictions.view(VectorEntry.State.EITHER)) {
             long iid = e.getKey();
             double score = scores.get(iid);
             params.getProbDistribution(score, probabilities);

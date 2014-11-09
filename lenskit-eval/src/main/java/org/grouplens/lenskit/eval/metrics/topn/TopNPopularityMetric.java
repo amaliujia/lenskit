@@ -22,7 +22,6 @@ package org.grouplens.lenskit.eval.metrics.topn;
 
 import it.unimi.dsi.fastutil.longs.*;
 import org.grouplens.lenskit.Recommender;
-import org.grouplens.lenskit.collections.CollectionUtils;
 import org.grouplens.lenskit.data.dao.EventDAO;
 import org.grouplens.lenskit.data.event.Rating;
 import org.grouplens.lenskit.eval.Attributed;
@@ -73,7 +72,7 @@ public class TopNPopularityMetric extends AbstractMetric<TopNPopularityMetric.Co
     private Long2IntMap computePop(EventDAO dao) {
 
         Long2ObjectOpenHashMap<LongSet> watchingUsers = new Long2ObjectOpenHashMap<LongSet>();
-        for (Rating r : dao.streamEvents(Rating.class).fast()) {
+        for (Rating r : dao.streamEvents(Rating.class)) {
             long item = r.getItemId();
             long user = r.getUserId();
             if (! watchingUsers.containsKey(item)) {
@@ -103,7 +102,7 @@ public class TopNPopularityMetric extends AbstractMetric<TopNPopularityMetric.Co
             return null;
         }
         double pop = 0;
-        for (ScoredId s : CollectionUtils.fast(recs)) {
+        for (ScoredId s : recs) {
             pop += context.popularity.get(s.getId()); // default value should be 0 here.
         }
         pop = pop / recs.size();

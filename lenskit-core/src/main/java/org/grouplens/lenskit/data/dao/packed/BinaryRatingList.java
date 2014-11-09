@@ -22,7 +22,6 @@ package org.grouplens.lenskit.data.dao.packed;
 
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntList;
-import org.grouplens.lenskit.collections.FastCollection;
 import org.grouplens.lenskit.cursors.AbstractCursor;
 import org.grouplens.lenskit.cursors.Cursor;
 import org.grouplens.lenskit.data.event.MutableRating;
@@ -31,13 +30,12 @@ import org.grouplens.lenskit.data.event.Rating;
 import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.util.AbstractList;
-import java.util.Iterator;
 
 /**
  * A list of ratings backed by a buffer.  This is not thread-safe.
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
-class BinaryRatingList extends AbstractList<Rating> implements FastCollection<Rating> {
+class BinaryRatingList extends AbstractList<Rating> {
     private final BinaryFormat format;
     private final ByteBuffer buffer;
     private final IntList positions;
@@ -81,35 +79,8 @@ class BinaryRatingList extends AbstractList<Rating> implements FastCollection<Ra
         return positions.size();
     }
 
-    @Override
-    public Iterator<Rating> fastIterator() {
-        return new FastIterImpl();
-    }
-
     public Cursor<Rating> cursor() {
         return new CursorImpl();
-    }
-
-    private class FastIterImpl implements Iterator<Rating> {
-        private MutableRating rating = new MutableRating();
-        private IntIterator posIter = positions.iterator();
-
-        @Override
-        public boolean hasNext() {
-            return posIter.hasNext();
-        }
-
-        @Override
-        public Rating next() {
-            int position = posIter.nextInt();
-            populateRating(position, rating);
-            return rating;
-        }
-
-        @Override
-        public void remove() {
-            throw new UnsupportedOperationException("remove not supported");
-        }
     }
 
     private class CursorImpl extends AbstractCursor<Rating> {
@@ -125,13 +96,6 @@ class BinaryRatingList extends AbstractList<Rating> implements FastCollection<Ra
         @Override
         public Rating next() {
             return getRating(posIter.nextInt());
-        }
-
-        @Nonnull
-        @Override
-        public Rating fastNext() {
-            populateRating(posIter.nextInt(), rating);
-            return rating;
         }
     }
 }

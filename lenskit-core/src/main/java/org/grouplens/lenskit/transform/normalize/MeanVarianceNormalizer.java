@@ -94,7 +94,7 @@ public class MeanVarianceNormalizer extends AbstractVectorNormalizer implements 
 
                 Cursor<Rating> ratings = dao.streamEvents(Rating.class);
                 int numRatings = 0;
-                for (Rating r : ratings.fast()) {
+                for (Rating r : ratings) {
                     Preference p = r.getPreference();
                     if (p != null) {
                         sum += p.getValue();
@@ -107,7 +107,7 @@ public class MeanVarianceNormalizer extends AbstractVectorNormalizer implements 
                 ratings = dao.streamEvents(Rating.class);
                 sum = 0;
 
-                for (Rating r : ratings.fast()) {
+                for (Rating r : ratings) {
                     Preference p = r.getPreference();
                     if (p != null) {
                         double delta = mean - p.getValue();
@@ -195,7 +195,7 @@ public class MeanVarianceNormalizer extends AbstractVectorNormalizer implements 
 
         @Override
         public MutableSparseVector apply(MutableSparseVector vector) {
-            for (VectorEntry rating : vector.fast()) {
+            for (VectorEntry rating : vector) {
                 vector.set(rating.getKey(), /* r' = (r - u) / s */
                            stdev == 0 ? 0 : // edge case
                                    (rating.getValue() - mean) / stdev);
@@ -205,7 +205,7 @@ public class MeanVarianceNormalizer extends AbstractVectorNormalizer implements 
 
         @Override
         public MutableSparseVector unapply(MutableSparseVector vector) {
-            for (VectorEntry rating : vector.fast()) {
+            for (VectorEntry rating : vector) {
                 vector.set(rating.getKey(), /* r = r' * s + u */
                            stdev == 0 ? mean : // edge case
                                    (rating.getValue() * stdev) + mean);

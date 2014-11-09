@@ -118,7 +118,7 @@ public class UserUserItemScorer extends AbstractItemScorer {
 
         MutableSparseVector sizeChan = scores.addChannelVector(NEIGHBORHOOD_SIZE_SYMBOL);
         MutableSparseVector weightChan = scores.addChannelVector(NEIGHBORHOOD_WEIGHT_SYMBOL);
-        for (VectorEntry e : scores.fast(VectorEntry.State.EITHER)) {
+        for (VectorEntry e : scores.view(VectorEntry.State.EITHER)) {
             final long item = e.getKey();
             double sum = 0;
             double weight = 0;
@@ -174,7 +174,7 @@ public class UserUserItemScorer extends AbstractItemScorer {
 
         int neighborsUsed = 0;
         for (Neighbor nbr: neighborFinder.getCandidateNeighbors(user, items)) {
-            for (VectorEntry e: nbr.vector.fast()) {
+            for (VectorEntry e: nbr.vector) {
                 final long item = e.getKey();
                 PriorityQueue<Neighbor> heap = heaps.get(item);
                 if (heap != null) {

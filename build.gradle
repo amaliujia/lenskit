@@ -46,6 +46,8 @@ task ciPublish {
     description "Runs CI publication tasks (not on Travis)."
 }
 
+apply plugin: 'base'
+
 allprojects { project ->
     group 'org.grouplens.lenskit'
     version '2.2-SNAPSHOT'
@@ -78,6 +80,9 @@ allprojects { project ->
 
     tasks.withType(Javadoc).all { task ->
         task.options.encoding = 'UTF-8'
+        task.onlyIf {
+            !project.getConfigProperty('javadoc.skip', 'false').toBoolean()
+        }
     }
 
     extensions.create('git', GitExtension)
@@ -114,6 +119,7 @@ task reportTests(type: TestReport) {
 subprojects {
     apply plugin: 'java'
     sourceCompatibility = '1.6'
+    targetCompatibility = '1.6'
     sourceSets.all { ss ->
         // generate resources & classes to same dir
         ss.output.resourcesDir = ss.output.classesDir
@@ -178,7 +184,6 @@ task report(group: 'verification') {
 }
 
 apply from: "$rootDir/gradle/website.gradle"
-apply from: "$rootDir/gradle/idea.gradle"
 ext.enableLint = getConfigProperty('lint', 'false').toBoolean()
 ext.enableLint |= System.getenv('SONAR_BUILD') == 'true'
 if (enableLint) {

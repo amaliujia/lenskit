@@ -23,7 +23,6 @@ package org.grouplens.lenskit.baseline;
 import org.grouplens.grapht.annotation.DefaultProvider;
 import org.grouplens.lenskit.basic.AbstractItemScorer;
 import org.grouplens.lenskit.collections.CollectionUtils;
-import org.grouplens.lenskit.collections.FastCollection;
 import org.grouplens.lenskit.core.Shareable;
 import org.grouplens.lenskit.core.Transient;
 import org.grouplens.lenskit.data.pref.IndexedPreference;
@@ -43,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import java.io.Serializable;
+import java.util.Collection;
 
 
 /**
@@ -76,7 +76,7 @@ public class LeastSquaresItemScorer extends AbstractItemScorer implements Serial
 
     @Override
     public void score(long user, MutableSparseVector output) {
-        for (VectorEntry e : output.fast(State.EITHER)) {
+        for (VectorEntry e : output.view(State.EITHER)) {
             double score = mean + userOffsets.get(user, 0) + itemOffsets.get(e.getKey(), 0);
             output.set(e, score);
         }
@@ -111,12 +111,12 @@ public class LeastSquaresItemScorer extends AbstractItemScorer implements Serial
 
         @Override
         public LeastSquaresItemScorer get() {
-            FastCollection<IndexedPreference> ratings = snapshot.getRatings();
+            Collection<IndexedPreference> ratings = snapshot.getRatings();
             logger.debug("training predictor on {} ratings", ratings.size());
 
             double sum = 0.0;
             double n = 0;
-            for (IndexedPreference r : CollectionUtils.fast(ratings)) {
+            for (IndexedPreference r : ratings) {
                 sum += r.getValue();
                 n += 1;
             }
@@ -131,7 +131,7 @@ public class LeastSquaresItemScorer extends AbstractItemScorer implements Serial
             double rmse = 0.0;
             while (trainingController.keepTraining(rmse)) {
                 double sse = 0;
-                for (IndexedPreference r : CollectionUtils.fast(ratings)) {
+                for (IndexedPreference r : ratings) {
                     final int uidx = r.getUserIndex();
                     final int iidx = r.getItemIndex();
                     final double p = mean + uoff[uidx] + ioff[iidx];

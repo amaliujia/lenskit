@@ -55,6 +55,7 @@ public class PackedPreferenceSnapshot extends AbstractPreferenceSnapshot {
     }
 
     private PackedPreferenceData data;
+    @SuppressWarnings("deprecation")
     private Supplier<List<FastCollection<IndexedPreference>>> userIndexLists;
 
     PackedPreferenceSnapshot(PackedPreferenceData data) {
@@ -92,11 +93,13 @@ public class PackedPreferenceSnapshot extends AbstractPreferenceSnapshot {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public FastCollection<IndexedPreference> getRatings() {
         return new PackedPreferenceCollection(data);
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public FastCollection<IndexedPreference> getUserRatings(long userId) {
         int uidx = userIndex().tryGetIndex(userId);
         List<FastCollection<IndexedPreference>> userLists = userIndexLists.get();
@@ -118,6 +121,7 @@ public class PackedPreferenceSnapshot extends AbstractPreferenceSnapshot {
     /**
      * Supplier to create user index lists.  Used to re-use memoization logic.
      */
+    @SuppressWarnings("deprecation")
     private class UserPreferenceSupplier implements Supplier<List<FastCollection<IndexedPreference>>> {
         @Override @Nonnull
         public List<FastCollection<IndexedPreference>> get() {
@@ -126,7 +130,7 @@ public class PackedPreferenceSnapshot extends AbstractPreferenceSnapshot {
             for (int i = 0; i < nusers; i++) {
                 userLists.add(new IntArrayList());
             }
-            for (IndexedPreference pref : CollectionUtils.fast(getRatings())) {
+            for (IndexedPreference pref : getRatings()) {
                 final int uidx = pref.getUserIndex();
                 final int idx = pref.getIndex();
                 userLists.get(uidx).add(idx);

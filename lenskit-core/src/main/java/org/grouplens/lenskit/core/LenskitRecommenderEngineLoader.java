@@ -24,9 +24,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import org.grouplens.grapht.Component;
 import org.grouplens.grapht.Dependency;
+import org.grouplens.grapht.ResolutionException;
 import org.grouplens.grapht.graph.DAGNode;
 import org.grouplens.grapht.solver.DependencySolver;
-import org.grouplens.grapht.solver.SolverException;
 import org.grouplens.grapht.util.ClassLoaderContext;
 import org.grouplens.grapht.util.ClassLoaders;
 import org.grouplens.lenskit.inject.GraphtUtils;
@@ -155,6 +155,31 @@ public class LenskitRecommenderEngineLoader {
         }
     }
 
+    /**
+     * Read a graph from an object input stream. Broken out to localize the necessary warning
+     * suppression.
+     *
+     * @param in The input stream.
+     * @return the loaded graph.
+     * @throws IOException If there is an I/O error.
+     * @throws ClassNotFoundException If there is a class resolution error.
+     * @see ObjectInput#readObject()
+     */
+    @SuppressWarnings("unchecked")
+    private DAGNode<Component, Dependency> readGraph(ObjectInput in) throws IOException, ClassNotFoundException {
+        return (DAGNode) in.readObject();
+    }
+
+    /**
+     * Load a recommender engine from an input stream.  It transparently decompresses the stream
+     * and handles the classloader nastiness.
+     *
+     * @param stream The input stream.
+     * @return The recommender engine.
+     * @throws IOException If there is an I/O error reading the engine.
+     * @throws RecommenderConfigurationException If there is a configuration error (including an
+     * invalid class reference in the object stream).
+     */
     private LenskitRecommenderEngine loadInternal(InputStream stream) throws IOException, RecommenderConfigurationException {
         logger.debug("using classloader {}", classLoader);
         DAGNode<Component, Dependency> graph;
@@ -169,7 +194,7 @@ public class LenskitRecommenderEngineLoader {
                 ctx = ClassLoaders.pushContext(classLoader);
             }
             try {
-                graph = (DAGNode) in.readObject();
+                graph = readGraph(in);
             } finally {
                 if (ctx != null) {
                     ctx.pop();
@@ -190,7 +215,7 @@ public class LenskitRecommenderEngineLoader {
             DependencySolver solver = rgb.buildDependencySolver();
             try {
                 graph = solver.rewrite(graph);
-            } catch (SolverException e) {
+            } catch (ResolutionException e) {
                 throw new RecommenderConfigurationException("resolution error occured while rewriting recommender", e);
             }
         }

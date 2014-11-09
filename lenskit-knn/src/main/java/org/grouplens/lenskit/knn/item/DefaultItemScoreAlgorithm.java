@@ -55,6 +55,7 @@ public class DefaultItemScoreAlgorithm implements ItemScoreAlgorithm {
         minNeighbors = min <= 0 ? 1 : min;
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     @Override
     public void scoreItems(ItemItemModel model, SparseVector userData,
                            MutableSparseVector scores,
@@ -65,7 +66,7 @@ public class DefaultItemScoreAlgorithm implements ItemScoreAlgorithm {
         MutableSparseVector sizeChannel = scores.getOrAddChannelVector(ItemItemScorer.NEIGHBORHOOD_SIZE_SYMBOL);
         sizeChannel.fill(0);
         // for each item, compute its prediction
-        for (VectorEntry e : scores.fast(VectorEntry.State.EITHER)) {
+        for (VectorEntry e : scores.view(VectorEntry.State.EITHER)) {
             final long item = e.getKey();
 
             // find all potential neighbors
@@ -85,6 +86,7 @@ public class DefaultItemScoreAlgorithm implements ItemScoreAlgorithm {
 
             if (score != null) {
                 scores.set(e, score.getScore());
+                // FIXME Scorers should not need to do this.
                 for (TypedSymbol sym: score.getChannelSymbols()) {
                     scores.getOrAddChannel(sym).put(e.getKey(), score.getChannelValue(sym));
                 }

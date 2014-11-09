@@ -129,6 +129,7 @@ public class ConfigMethodInvoker {
         }
     }
 
+    @SuppressWarnings("unchecked")
     Object transform(Object obj, Function<Object,?> function) {
         if (obj instanceof Future) {
             return Futures.transform(listenInPoolThread((Future) obj), function);
@@ -364,7 +365,7 @@ public class ConfigMethodInvoker {
      * after it is constructed.  No extra type coercion is performed.
      *
      * <p>If the object has a {@code setEvalConfig} method, that method is called with the project's
-     * configuration.  Likewise, an {@code setEvalProject} property or {@code set{roject} method with
+     * configuration.  Likewise, an {@code setEvalProject} property or {@code setProject} method with
      * type assignable from {@link EvalProject} is set to the project.
      *
      * @param type The type to construct.

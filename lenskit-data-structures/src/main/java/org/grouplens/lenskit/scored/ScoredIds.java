@@ -25,9 +25,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Longs;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.grouplens.lenskit.collections.CopyingFastCollection;
 import org.grouplens.lenskit.collections.FastCollection;
-import org.grouplens.lenskit.symbols.DoubleSymbolValue;
 import org.grouplens.lenskit.symbols.Symbol;
 import org.grouplens.lenskit.symbols.SymbolValue;
 import org.grouplens.lenskit.symbols.TypedSymbol;
@@ -35,6 +33,7 @@ import org.grouplens.lenskit.vectors.SparseVector;
 import org.grouplens.lenskit.vectors.VectorEntry;
 
 import javax.annotation.Nullable;
+import java.util.AbstractCollection;
 import java.util.Comparator;
 import java.util.Iterator;
 
@@ -237,11 +236,13 @@ public final class ScoredIds {
      * {@link ScoredId} objects.
      * @param vector The vector to view as a collection of {@link ScoredId}s
      */
+    @SuppressWarnings("deprecation")
     public static FastCollection<ScoredId> collectionFromVector(SparseVector vector) {
         return new VectorIdCollection(vector);
     }
 
-    private static class VectorIdCollection extends CopyingFastCollection<ScoredId> {
+    @SuppressWarnings("deprecation")
+    private static class VectorIdCollection extends AbstractCollection<ScoredId> implements FastCollection<ScoredId> {
 
         private final SparseVector vector;
 
@@ -250,32 +251,19 @@ public final class ScoredIds {
         }
 
         @Override
-        @SuppressWarnings("unchecked")
-        protected ScoredId copy(ScoredId elt) {
-            ScoredIdBuilder builder = new ScoredIdBuilder();
-            builder.setId(elt.getId());
-            builder.setScore(elt.getScore());
-            for (DoubleSymbolValue chan: elt.getUnboxedChannels()) {
-                builder.addChannel(chan.getRawSymbol(),
-                                   chan.getDoubleValue());
-            }
-            for (SymbolValue chan: elt.getChannels()) {
-                if (!chan.getSymbol().getType().equals(Double.class)) {
-                    builder.addChannel(chan.getSymbol(),
-                                       chan.getValue());
-                }
-            }
-            return builder.build();
-        }
-
-        @Override
         public int size() {
             return vector.size();
         }
 
         @Override
-        public Iterator<ScoredId> fastIterator() {
+        public Iterator<ScoredId> iterator() {
             return new VectorIdIter(vector);
+        }
+
+        @Deprecated
+        @Override
+        public Iterator<ScoredId> fastIterator() {
+            return iterator();
         }
     }
 
@@ -283,12 +271,10 @@ public final class ScoredIds {
 
         private final SparseVector vector;
         private Iterator<VectorEntry> entIter;
-        private VectorEntryScoredId id;
 
         public VectorIdIter(SparseVector v) {
             vector = v;
-            entIter = vector.fastIterator();
-            id = new VectorEntryScoredId(vector);
+            entIter = vector.iterator();
         }
 
         @Override
@@ -298,8 +284,7 @@ public final class ScoredIds {
 
         @Override
         public ScoredId next() {
-            id.setEntry(entIter.next());
-            return id;
+            return new VectorEntryScoredId(vector, entIter.next());
         }
 
         @Override

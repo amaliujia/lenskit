@@ -200,6 +200,7 @@ public abstract class SparseVectorTestCommon {
      * Test method for {@link org.grouplens.lenskit.vectors.MutableSparseVector#fastIterator()}.
      */
     @Test
+    @SuppressWarnings("deprecation")
     public void testFastIterator() {
         assertFalse(emptyVector().fastIterator().hasNext());
         try {
@@ -239,7 +240,7 @@ public abstract class SparseVectorTestCommon {
 
     @Test
     public void testFast() {
-        assertThat(emptyVector().fast(), notNullValue());
+        assertThat(emptyVector(), notNullValue());
     }
 
     @Test

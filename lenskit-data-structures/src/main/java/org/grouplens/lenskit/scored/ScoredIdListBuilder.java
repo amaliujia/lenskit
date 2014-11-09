@@ -31,7 +31,6 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectArrayMap;
 import org.apache.commons.lang3.builder.Builder;
-import org.grouplens.lenskit.collections.CollectionUtils;
 import org.grouplens.lenskit.collections.CompactableLongArrayList;
 import org.grouplens.lenskit.symbols.DoubleSymbolValue;
 import org.grouplens.lenskit.symbols.Symbol;
@@ -163,6 +162,7 @@ public class ScoredIdListBuilder implements Builder<PackedScoredIdList> {
      *
      * @return A sparse vector containing the data accumulated.
      */
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public ImmutableSparseVector buildVector() {
         MutableSparseVector msv = MutableSparseVector.create(ids);
         final int size = size();
@@ -202,6 +202,7 @@ public class ScoredIdListBuilder implements Builder<PackedScoredIdList> {
      * @param score The score for the ID.
      * @return The builder (for chaining).
      */
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public ScoredIdListBuilder add(long id, double score) {
         Preconditions.checkState(ids != null, "builder has been finished");
         ids.add(id);
@@ -223,6 +224,7 @@ public class ScoredIdListBuilder implements Builder<PackedScoredIdList> {
      * @param id The ID.
      * @return The builder (for chaining).
      */
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public ScoredIdListBuilder add(ScoredId id) {
         Preconditions.checkState(ids != null, "builder has been finished");
         // check whether all symbols are valid
@@ -273,8 +275,7 @@ public class ScoredIdListBuilder implements Builder<PackedScoredIdList> {
      */
     public ScoredIdListBuilder addAll(Iterable<ScoredId> ids) {
         Preconditions.checkState(ids != null, "builder has been finished");
-        // fast iteration is safe since add() doesn't retain the id object
-        for (ScoredId id: CollectionUtils.fast(ids)) {
+        for (ScoredId id: ids) {
             add(id);
         }
         return this;

@@ -33,6 +33,8 @@ import java.util.Iterator;
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
 class SparseVectorMap extends AbstractLong2ObjectMap<Double> {
+    private static final long serialVersionUID = 1L;
+
     final SparseVector vector;
 
     /**
@@ -105,7 +107,7 @@ class SparseVectorMap extends AbstractLong2ObjectMap<Double> {
      * Implement a map entry iterator.
      */
     class EntryIterator extends AbstractObjectIterator<Entry<Double>> {
-        Iterator<VectorEntry> delegate = vector.fastIterator();
+        Iterator<VectorEntry> delegate = vector.iterator();
 
         @Override
         public boolean hasNext() {
@@ -123,7 +125,7 @@ class SparseVectorMap extends AbstractLong2ObjectMap<Double> {
      * Implement a fast map iterator.
      */
     class FastEntryIterator extends AbstractObjectIterator<Entry<Double>> {
-        Iterator<VectorEntry> delegate = vector.fastIterator();
+        Iterator<VectorEntry> delegate = vector.iterator();
         EntryShim entry = new EntryShim(null);
 
         @Override

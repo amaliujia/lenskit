@@ -113,7 +113,7 @@ public class FunkSVDItemScorer extends AbstractItemScorer {
      *               be initialized to the user's baseline predictions.
      */
     private void computeScores(long user, AVector uprefs, MutableSparseVector output) {
-        for (VectorEntry e : output.fast()) {
+        for (VectorEntry e : output) {
             final long item = e.getKey();
             AVector ivec = model.getItemVector(item);
             if (ivec == null) {
@@ -186,7 +186,7 @@ public class FunkSVDItemScorer extends AbstractItemScorer {
         int tailSize = featureCount - feature - 1;
         AVector utail = uprefs.subVector(tailStart, tailSize);
         MutableSparseVector tails = MutableSparseVector.create(ratings.keySet());
-        for (VectorEntry e: tails.fast(VectorEntry.State.EITHER)) {
+        for (VectorEntry e: tails.view(VectorEntry.State.EITHER)) {
             AVector ivec = model.getItemVector(e.getKey());
             if (ivec == null) {
                 // FIXME Do this properly
@@ -210,7 +210,7 @@ public class FunkSVDItemScorer extends AbstractItemScorer {
         assert rule != null;
 
         FunkSVDUpdater updater = rule.createUpdater();
-        for (VectorEntry e: ratings.fast()) {
+        for (VectorEntry e: ratings) {
             final long iid = e.getKey();
             final AVector ivec = model.getItemVector(iid);
             if (ivec == null) {

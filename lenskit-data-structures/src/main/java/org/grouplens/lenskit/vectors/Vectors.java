@@ -29,7 +29,6 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.grouplens.lenskit.collections.CollectionUtils;
 import org.grouplens.lenskit.indexes.IdIndexMapping;
 import org.grouplens.lenskit.scored.ScoredId;
 import org.grouplens.lenskit.symbols.Symbol;
@@ -56,11 +55,11 @@ public final class Vectors {
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static MutableSparseVector fromScoredIds(List<ScoredId> scores) {
         LongSet ids = new LongOpenHashSet();
-        for (ScoredId sid: CollectionUtils.fast(scores)) {
+        for (ScoredId sid: scores) {
             ids.add(sid.getId());
         }
         MutableSparseVector vec = MutableSparseVector.create(ids);
-        for (ScoredId sid: CollectionUtils.fast(scores)) {
+        for (ScoredId sid: scores) {
             long id = sid.getId();
             if (!vec.containsKey(id)) {
                 vec.set(id, sid.getScore());
@@ -89,7 +88,7 @@ public final class Vectors {
         Preconditions.checkArgument(values.length == map.size(),
                                     "values array longer than id mapping");
         MutableSparseVector msv = MutableSparseVector.create(map.getIdList());
-        for (VectorEntry e: msv.fast(VectorEntry.State.EITHER)) {
+        for (VectorEntry e: msv.view(VectorEntry.State.EITHER)) {
             msv.set(e, values[map.getIndex(e.getKey())]);
         }
         return msv;
