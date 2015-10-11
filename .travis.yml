@@ -1,24 +1,28 @@
 language: java
 jdk:
 - oraclejdk7
-- openjdk6
 - oraclejdk8
 branches:
   except:
-  - www
+    - www
 cache:
-  apt: true
   directories:
   - $HOME/.gradle/caches
   - $HOME/.gradle/wrapper
 before_install:
-- sudo apt-get -q update
-- sudo apt-get -q install --no-install-recommends pandoc python-pandas
-- pip install --user pandocfilters
-- git fetch --depth=10000 origin
-install: ./gradlew ciPrep
-script: ./gradlew ciTest
+  - git fetch --depth=10000 origin
+install:
+  - wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+  - bash /tmp/miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  - conda env create -q -f etc/env-linux.yml
+  - source activate lenskit
+  - ./gradlew ciPrep --stacktrace
+script: ./gradlew ciTest --stacktrace --parallel
 env:
   global:
-  - TERM=dumb
-  - TZ=CST6CDT
+    - TERM=dumb
+    - TZ=CST6CDT
+sudo: false

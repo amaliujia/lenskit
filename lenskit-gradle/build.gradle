@@ -1,0 +1,24 @@
+apply plugin: 'groovy'
+apply from: "$rootDir/gradle/maven.gradle"
+
+dependencies {
+    compile gradleApi()
+    compile localGroovy()
+
+    compile project(':lenskit-specs')
+}
+
+apply from: 'integration-tests.gradle'
+check.dependsOn gradleTests
+
+javadoc {
+    onlyIf {
+        // FIXME Get some documentation going!
+        sourceSets.main.java.files.size() > 0
+    }
+}
+
+groovydoc {
+    link 'https://docs.gradle.org/current/groovydoc/', 'org.gradle'
+    source rootProject.childProjects['lenskit-specs'].sourceSets.main.allJava
+}

@@ -20,95 +20,14 @@
  */
 package org.grouplens.lenskit.cli;
 
-import net.sourceforge.argparse4j.ArgumentParsers;
-import net.sourceforge.argparse4j.inf.*;
-import org.apache.commons.lang3.SystemUtils;
-import org.apache.commons.lang3.reflect.ConstructorUtils;
-import org.apache.commons.lang3.reflect.MethodUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.lang.reflect.InvocationTargetException;
-
 /**
- * Main entry point for lenskit-cli.
- *
- * @since 2.1
- * @author <a href="http://www.grouplens.org">GroupLens Research</a>
+ * Deprecated compatibility alias for running LensKit commands.
+ * @deprecated Use {@link org.lenskit.cli.Main}.
  */
+@Deprecated
 public class Main {
-    private static final Logger logger = LoggerFactory.getLogger(Main.class);
     public static void main(String[] args) {
-        ArgumentParser parser =
-                ArgumentParsers.newArgumentParser("lenskit")
-                               .description("Work with LensKit recommenders and data.");
-        Logging.addLoggingGroup(parser);
-
-        Subparsers subparsers = parser.addSubparsers()
-                                      .metavar("COMMAND")
-                                      .title("commands");
-        registerClass(subparsers, Version.class);
-        registerClass(subparsers, Eval.class);
-        registerClass(subparsers, PackRatings.class);
-        registerClass(subparsers, TrainModel.class);
-        registerClass(subparsers, Recommend.class);
-        registerClass(subparsers, Predict.class);
-        registerClass(subparsers, Graph.class);
-
-        try {
-            Namespace options = parser.parseArgs(args);
-            Logging.configureLogging(options);
-            Runtime rt = Runtime.getRuntime();
-            logger.info("Starting LensKit on Java {} from {}",
-                        SystemUtils.JAVA_VERSION, SystemUtils.JAVA_VENDOR);
-            logger.debug("Using VM '{}' version {} from {}",
-                         SystemUtils.JAVA_VM_NAME,
-                         SystemUtils.JAVA_VM_VERSION,
-                         SystemUtils.JAVA_VM_VENDOR);
-            logger.debug("Memory limit of {} MiB",
-                         rt.maxMemory() >> 20);
-            logger.debug("Have {} processors", rt.availableProcessors());
-            Command cmd = getCommand(options);
-            cmd.execute();
-        } catch (ArgumentParserException e) {
-            parser.handleError(e);
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            System.exit(2);
-        }
-    }
-
-    private static void registerClass(Subparsers subparsers, Class<? extends Command> cls) {
-        CommandSpec spec = cls.getAnnotation(CommandSpec.class);
-        if (spec == null) {
-            throw new IllegalArgumentException(cls + " has no @CommandSpec annotation");
-        }
-        Subparser parser = subparsers.addParser(spec.name())
-                                     .help(spec.help())
-                                     .setDefault("command", cls);
-        try {
-            MethodUtils.invokeStaticMethod(cls, "configureArguments", parser);
-        } catch (NoSuchMethodException e) {
-            throw new RuntimeException("cannot configure command " + cls, e);
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException("cannot configure command " + cls, e);
-        } catch (InvocationTargetException e) {
-            throw new RuntimeException("cannot configure command " + cls, e);
-        }
-    }
-
-    public static Command getCommand(Namespace options) {
-        Class<? extends Command> command = options.get("command");
-        try {
-            return ConstructorUtils.invokeConstructor(command, options);
-        } catch (NoSuchMethodException e) {
-            throw new RuntimeException("cannot instantiate command " + command, e);
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException("cannot instantiate command " + command, e);
-        } catch (InvocationTargetException e) {
-            throw new RuntimeException("cannot instantiate command " + command, e);
-        } catch (InstantiationException e) {
-            throw new RuntimeException("cannot instantiate command " + command, e);
-        }
+        System.err.println("warning: org.grouplens.lenskit.cli.Main is deprecated; use o.l.cli.Main");
+        org.lenskit.cli.Main.main(args);
     }
 }

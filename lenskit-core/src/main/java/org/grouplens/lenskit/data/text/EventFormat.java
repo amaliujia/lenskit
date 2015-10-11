@@ -20,7 +20,7 @@
  */
 package org.grouplens.lenskit.data.text;
 
-import org.grouplens.lenskit.data.event.Event;
+import org.lenskit.data.events.Event;
 
 /**
  * Description of how an event is laid out in a line in a text file.
@@ -30,6 +30,11 @@ import org.grouplens.lenskit.data.event.Event;
  * </p>
  */
 public interface EventFormat {
+    /**
+     * Get the number of header lines to skip in the file.
+     */
+    int getHeaderLines();
+
     /**
      * Parse a line into an event.
      *

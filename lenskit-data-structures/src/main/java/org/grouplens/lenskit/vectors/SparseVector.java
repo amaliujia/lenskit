@@ -65,9 +65,11 @@ import java.util.Set;
  * vectors that are guaranteed to be unchanging, see
  * {@link ImmutableSparseVector}.
  *
- * @author <a href="http://www.grouplens.org">GroupLens Research</a>
+ * @see <a href="http://lenskit.org/documentation/basics/sparse-vectors/">Sparse Vector tutorial</a>
  * @compat Public
+ * @deprecated Use maps instead.
  */
+@Deprecated
 public abstract class SparseVector implements Iterable<VectorEntry>, Serializable {
     private static final long serialVersionUID = 2L;
 
@@ -117,6 +119,10 @@ public abstract class SparseVector implements Iterable<VectorEntry>, Serializabl
             values[i] = keyValueMap.get(keys.getKey(i));
         }
     }
+
+    public Long2DoubleMap asMap() {
+        return new SparseVectorMapAdapter(this);
+    }
     //endregion
 
     //region Queries
@@ -131,11 +137,11 @@ public abstract class SparseVector implements Iterable<VectorEntry>, Serializabl
     }
 
     /**
-     * Get the value for {@var key}.
+     * Get the value for <var>key</var>.
      *
      * @param key the key to look up; the key must be in the key set.
      * @return the key's value
-     * @throws IllegalArgumentException if {@var key} is not in the key set.
+     * @throws IllegalArgumentException if <var>key</var> is not in the key set.
      */
     public double get(long key) {
         final int idx = keys.getIndexIfActive(key);
@@ -147,11 +153,11 @@ public abstract class SparseVector implements Iterable<VectorEntry>, Serializabl
     }
 
     /**
-     * Get the value for {@var key}.
+     * Get the value for <var>key</var>.
      *
      * @param key the key to look up
      * @param dft The value to return if the key is not in the vector
-     * @return the value (or {@var dft} if the key is not set to a value)
+     * @return the value (or <var>dft</var> if the key is not set to a value)
      */
     public double get(long key, double dft) {
         final int idx = keys.getIndexIfActive(key);
@@ -520,6 +526,26 @@ public abstract class SparseVector implements Iterable<VectorEntry>, Serializabl
     }
 
     /**
+     * Compute and return the sum of the absolute values of the vector.
+     *
+     * @return the sum of the vector's absolute values
+     */
+    public double sumAbs() {
+        double result = 0;
+        if (keys.isCompletelySet()) {
+            for (int i = keys.domainSize() - 1; i >= 0; i--) {
+                result += Math.abs(values[i]);
+            }
+        } else {
+            DoubleIterator iter = values().iterator();
+            while (iter.hasNext()) {
+                result += Math.abs(iter.nextDouble());
+            }
+        }
+        return result;
+    }
+
+    /**
      * Compute and return the mean of the vector's values.
      *
      * @return the mean of the vector
@@ -533,7 +559,7 @@ public abstract class SparseVector implements Iterable<VectorEntry>, Serializabl
      * Compute the dot product between two vectors.
      *
      * @param o The other vector.
-     * @return The dot (inner) product between this vector and {@var o}.
+     * @return The dot (inner) product between this vector and <var>o</var>.
      */
     public double dot(SparseVector o) {
         if (keys.isCompletelySet() && o.keys.isCompletelySet()) {

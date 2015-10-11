@@ -21,15 +21,16 @@
 package org.grouplens.lenskit.data.text;
 
 import com.google.common.collect.ImmutableList;
-import org.grouplens.lenskit.data.event.EventBuilder;
-import org.grouplens.lenskit.data.event.LikeBatchBuilder;
-import org.grouplens.lenskit.data.event.LikeBuilder;
-import org.grouplens.lenskit.data.event.RatingBuilder;
+import org.lenskit.data.events.EventBuilder;
+import org.lenskit.data.events.LikeBatchBuilder;
+import org.lenskit.data.events.LikeBuilder;
+import org.lenskit.data.ratings.RatingBuilder;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+@SuppressWarnings("rawtypes")
 public final class Fields {
     private Fields() {}
 

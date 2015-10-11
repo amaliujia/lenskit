@@ -35,13 +35,15 @@
 
 rootProject.name = 'lenskit'
 
-include 'build-support'
 include 'lenskit-test'
 include 'lenskit-data-structures'
 include 'lenskit-api'
+include 'lenskit-specs'
 include 'lenskit-core', 'lenskit-groovy'
 include 'lenskit-eval'
+include 'lenskit-gradle'
 include 'lenskit-knn', 'lenskit-svd', 'lenskit-slopeone', 'lenskit-predict'
 include 'lenskit-all'
 include 'lenskit-cli'
 include 'lenskit-integration-tests'
+include 'dist'

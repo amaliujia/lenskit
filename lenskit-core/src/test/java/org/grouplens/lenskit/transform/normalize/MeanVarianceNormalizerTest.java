@@ -20,10 +20,9 @@
  */
 package org.grouplens.lenskit.transform.normalize;
 
-import org.grouplens.lenskit.data.dao.EventCollectionDAO;
-import org.grouplens.lenskit.data.dao.EventDAO;
-import org.grouplens.lenskit.data.event.Rating;
-import org.grouplens.lenskit.data.event.Ratings;
+import org.lenskit.data.dao.EventCollectionDAO;
+import org.lenskit.data.dao.EventDAO;
+import org.lenskit.data.ratings.Rating;
 import org.grouplens.lenskit.vectors.ImmutableSparseVector;
 import org.grouplens.lenskit.vectors.MutableSparseVector;
 import org.junit.Assert;
@@ -32,6 +31,9 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
 
 /**
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
@@ -44,7 +46,7 @@ public class MeanVarianceNormalizerTest {
     private ImmutableSparseVector uniformUserRatings;
 
     private void addRating(List<Rating> ratings, long uid, long iid, double value) {
-        ratings.add(Ratings.make(uid, iid, value));
+        ratings.add(Rating.create(uid, iid, value));
     }
 
     @Before
@@ -113,15 +115,15 @@ public class MeanVarianceNormalizerTest {
         VectorTransformation trans = urvn.makeTransformation(uniformUserRatings);
         MutableSparseVector nUR = userRatings.mutableCopy();
         trans.apply(nUR);
-        //Test apply
-        Assert.assertEquals(0.0, nUR.get(0L), MIN_DOUBLE_PRECISION);
-        Assert.assertEquals(0.0, nUR.get(1L), MIN_DOUBLE_PRECISION);
-        Assert.assertEquals(0.0, nUR.get(2L), MIN_DOUBLE_PRECISION);
+        //Test apply - shoudl subtract mean
+        assertThat(nUR.get(0L), closeTo(-2.0, 1.0e-6));
+        assertThat(nUR.get(1L), closeTo(0.0, 1.0e-6));
+        assertThat(nUR.get(2L), closeTo(2.0, 1.0e-6));
         trans.unapply(nUR);
         //Test unapply
-        Assert.assertEquals(2.0, nUR.get(0L), MIN_DOUBLE_PRECISION);
-        Assert.assertEquals(2.0, nUR.get(1L), MIN_DOUBLE_PRECISION);
-        Assert.assertEquals(2.0, nUR.get(2L), MIN_DOUBLE_PRECISION);
+        assertThat(nUR.get(0L), closeTo(0.0, 1.0e-6));
+        assertThat(nUR.get(1L), closeTo(2.0, 1.0e-6));
+        assertThat(nUR.get(2L), closeTo(4.0, 1.0e-6));
     }
 
     @Test

@@ -29,26 +29,60 @@ public final class Formats {
     private Formats() {}
 
     /**
+     * A basic format of ratings in a CSV file.  The expected format is (<em>user</em>, <em>item</em>,
+     * <em>rating</em>, <em>timestamp</em>), where the timestamp is optional.
+     * @param delim The delimiter.
+     * @return An event format for reading ratings from a CSV file.
+     */
+    public static DelimitedColumnEventFormat delimitedRatings(String delim) {
+        return DelimitedColumnEventFormat.create(new RatingEventType())
+                                         .setDelimiter(delim)
+                                         .setFields(Fields.user(), Fields.item(),
+                                                    Fields.rating(),
+                                                    Fields.timestamp(false));
+    }
+
+    /**
+     * A basic format of ratings in a CSV file.  The expected format is (<em>user</em>, <em>item</em>,
+     * <em>rating</em>, <em>timestamp</em>), where the timestamp is optional.
+     * @return An event format for reading ratings from a CSV file.
+     */
+    public static DelimitedColumnEventFormat csvRatings() {
+        return delimitedRatings(",");
+    }
+
+    /**
      * Get a format for reading the ML-100K data set.
      *
      * @return A format for using {@link TextEventDAO} to read the ML-100K data set.
      */
     public static DelimitedColumnEventFormat ml100kFormat() {
-        DelimitedColumnEventFormat fmt = new DelimitedColumnEventFormat(new RatingEventType());
-        fmt.setDelimiter("\t");
+        DelimitedColumnEventFormat fmt = new DelimitedColumnEventFormat(new RatingEventType(), "\t");
         fmt.setFields(Fields.user(), Fields.item(), Fields.rating(), Fields.timestamp());
         return fmt;
     }
 
     /**
-     * Get a format for reading the MovieLens data sets.
+     * Get a format for reading the MovieLens 1M and 10M data sets.
      *
      * @return A format for using {@link TextEventDAO} to read the ML-1M and ML-10M data sets.
      */
     public static DelimitedColumnEventFormat movieLensFormat() {
-        DelimitedColumnEventFormat fmt = new DelimitedColumnEventFormat(new RatingEventType());
-        fmt.setDelimiter("::");
-        fmt.setFields(Fields.user(), Fields.item(), Fields.rating(), Fields.timestamp());
-        return fmt;
+        return DelimitedColumnEventFormat.create(new RatingEventType())
+                                         .setDelimiter("::")
+                                         .setFields(Fields.user(), Fields.item(),
+                                                    Fields.rating(), Fields.timestamp());
+    }
+
+    /**
+     * Get a format for reading the MovieLens 20M and Latest data sets.
+     * @return A format for using {@link TextEventDAO} to read the ML-10M and ML-Latest data sets.
+     */
+    public static DelimitedColumnEventFormat movieLensLatest() {
+        return DelimitedColumnEventFormat.create(new RatingEventType())
+                                         .setDelimiter(",")
+                                         .setFields(Fields.user(), Fields.item(),
+                                                    Fields.rating(), Fields.timestamp())
+                                         .setHeaderLines(1);
     }
 }

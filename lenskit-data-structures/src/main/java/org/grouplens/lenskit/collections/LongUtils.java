@@ -30,7 +30,9 @@ import java.util.*;
  * @since 2.0
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  * @compat Public
+ * @deprecated Replaced by equivalent class in `lenskit-core`.
  */
+@Deprecated
 public final class LongUtils {
     private LongUtils() {}
 
@@ -90,7 +92,7 @@ public final class LongUtils {
      *
      * @param items   The initial set
      * @param exclude The items to remove
-     * @return The elements of {@var items} that are not in {@var exclude}.
+     * @return The elements of <var>items</var> that are not in <var>exclude</var>.
      */
     public static LongSortedSet setDifference(LongSet items, LongSet exclude) {
         long[] data = new long[items.size()];
@@ -162,7 +164,7 @@ public final class LongUtils {
      *
      * @param a The first set.
      * @param b The second set.
-     * @return The elements of {@var items} that are not in {@var exclude}.
+     * @return The elements of <var>items</var> that are not in <var>exclude</var>.
      */
     public static LongSortedSet setUnion(LongSortedSet a, LongSortedSet b) {
         if (a instanceof LongSortedArraySet && b instanceof LongSortedArraySet) {

@@ -22,22 +22,24 @@ package org.grouplens.lenskit.data.text;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
-import org.grouplens.lenskit.core.Shareable;
-import org.grouplens.lenskit.data.event.EventBuilder;
-import org.grouplens.lenskit.data.event.LikeBatchBuilder;
+import org.lenskit.inject.Shareable;
+import org.lenskit.data.events.EventBuilder;
+import org.lenskit.data.events.Like;
+import org.lenskit.data.events.LikeBatchBuilder;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Set;
 
 /**
- * Event type for {@link org.grouplens.lenskit.data.event.Like}, reading plus counts without
+ * Event type for {@link Like}, reading plus counts without
  * timestamps (by default).
  *
  * @since 2.2
  */
 @AutoService(EventTypeDefinition.class) // register this class to be locatable as an event type
 @Shareable
+@SuppressWarnings("rawtypes")
 public class LikeBatchEventType implements EventTypeDefinition, Serializable {
     private static final long serialVersionUID = 1L;
 

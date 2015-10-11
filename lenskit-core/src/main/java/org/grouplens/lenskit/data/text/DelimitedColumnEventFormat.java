@@ -26,8 +26,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.apache.commons.lang3.text.StrTokenizer;
 import org.grouplens.grapht.util.ClassLoaders;
-import org.grouplens.lenskit.data.event.Event;
-import org.grouplens.lenskit.data.event.EventBuilder;
+import org.lenskit.data.events.Event;
+import org.lenskit.data.events.EventBuilder;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -48,11 +48,28 @@ public final class DelimitedColumnEventFormat implements EventFormat {
     private String delimiter = "\t";
     @Nonnull
     private List<Field> fieldList;
+    private int headerLines = 0;
 
+    /**
+     * Construct a new event format.
+     * @param etd The type definition.
+     * @param delim The delimiter.
+     */
     @Inject
-    public DelimitedColumnEventFormat(@Nonnull EventTypeDefinition etd) {
+    public DelimitedColumnEventFormat(@Nonnull EventTypeDefinition etd, @ColumnSeparator String delim) {
         eventTypeDef = etd;
+        delimiter = delim;
         setFields(etd.getDefaultFields());
+    }
+
+    /**
+     * Construct a new event format.
+     * @param etd The type definition
+     * @deprecated Use {@link #create(EventTypeDefinition)} instead.
+     */
+    @Deprecated
+    public DelimitedColumnEventFormat(@Nonnull EventTypeDefinition etd) {
+        this(etd, "\t");
     }
 
     /**
@@ -63,7 +80,7 @@ public final class DelimitedColumnEventFormat implements EventFormat {
     @Nonnull
     public static DelimitedColumnEventFormat create(@Nonnull EventTypeDefinition etd) {
         Preconditions.checkNotNull(etd, "type definition");
-        return new DelimitedColumnEventFormat(etd);
+        return new DelimitedColumnEventFormat(etd, "\t");
     }
 
     /**
@@ -122,6 +139,21 @@ public final class DelimitedColumnEventFormat implements EventFormat {
         return this;
     }
 
+    @Override
+    public int getHeaderLines() {
+        return headerLines;
+    }
+
+    /**
+     * Set the number of lines to skip before reading events.
+     * @param lines The number of lines to skip.
+     * @return The number of header lines to skip.
+     */
+    public DelimitedColumnEventFormat setHeaderLines(int lines) {
+        headerLines = lines;
+        return this;
+    }
+
     /**
      * Set the fields to be parsed.
      *
@@ -143,6 +175,7 @@ public final class DelimitedColumnEventFormat implements EventFormat {
             throw new IllegalArgumentException("missing fields");
         }
 
+        @SuppressWarnings("rawtypes")
         Predicate<Class<? extends EventBuilder>> canConfigBuilderType = new Predicate<Class<? extends EventBuilder>>() {
             @Override
             public boolean apply(@Nullable Class<? extends EventBuilder> input) {

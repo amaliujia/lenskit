@@ -16,7 +16,7 @@ This subcommand takes no arguments.
 
 ## See Also
 
-[**lenskit**(1)](./lenskit.1.html)
+[**lenskit**(1)](man:lenskit(1))
 
 ## Project Information
 

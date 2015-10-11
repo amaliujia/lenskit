@@ -26,9 +26,13 @@ detail in its own manual page.
 --log-file *FILE*
 :   Write logging output to *FILE*.
 
--d, --debug
-:   Increase verbosity, printing debug messages to the console.  By default, only messages at INFO
-    and higher levels are logged.  The log file, if specified, always receives debug-level output.
+--log-level *LEVEL*
+:   Output log messages at level *LEVEL* (or higher).  Can be one of ‘TRACE’, ‘DEBUG’, ‘INFO’, ‘WARN’, or ‘ERROR’.
+    The default is ‘INFO’.
+    
+--log-file-level *LEVEL*
+:   Specify a different level for the log file (specified with `--log-file`).  If this option is not specified, then
+    the log level set with `--log-level` is used for both the console and the log file.
 
 --debug-grapht
 :   Output INFO (or DEBUG, if **--debug** is also used) logging messages from Grapht.  Grapht is
@@ -39,26 +43,26 @@ detail in its own manual page.
 
 Each command is documented in its own man page, *lenskit-command*(1).
 
-[version](lenskit-version.1.html)
+[version](man:lenskit-version(1))
 :   Print the LensKit version.
 
-[train-model](lenskit-train-model.1.html)
+[train-model](man:lenskit-train-model(1))
 :   Train a recommender model and save it to disk.
 
-[predict](lenskit-predict.1.html)
+[predict](man:lenskit-predict(1))
 :   Predict user ratings for items, using a configuration or a trained model.
 
-[recommend](lenskit-recommend.1.html)
+[recommend](man:lenskit-recommend(1))
 :   Recommend items for users, using a configuration or a trained model.
 
-[graph](lenskit-graph.1.html)
+[global-recommend](man:lenskit-global-recommend(1))
+:   Recommend items with respect to a set of reference items.
+
+[graph](man:lenskit-graph(1))
 :   Output a GraphViz diagram of a recommender configuration (either from configuration files or a
     trained model).
 
-[eval](lenskit-eval.1.html)
-:   Run a LensKit evaluation script.
-
-[pack-ratings](lenskit-pack-ratings.1.html)
+[pack-ratings](man:lenskit-pack-ratings(1))
 :   Pack rating data into a binary file for more efficient access.
 
 ## Environment and System Properties
@@ -75,25 +79,28 @@ Also, the following Java system properties can be set for useful effects:
 
 logback.configurationFile
 :   The location of a Logback configuration file.  This overrides all built-in or command line
-    logging configuration.
+    logging configuration (e.g. `--log-file`).
 
 ## See Also
 
--  Man pages for subcommands: [**lenskit-version**(1)](lenskit-version.1.html),
-   [**lenskit-train-model**(1)](lenskit-train-model.1.html),
-   [**lenskit-predict**(1)](lenskit-predict.1.html),
-   [**lenskit-recommend**(1)](lenskit-recommend.1.html),
-   [**lenskit-graph**(1)](lenskit-graph.1.html),
-   [**lenskit-eval**(1)](lenskit-eval.1.html),
-   [**lenskit-pack-ratings**(1)](lenskit-pack-ratings.1.html)
--  The [LensKit home page](http://lenskit.grouplens.org)
--  The [LensKit manual](http://github.com/grouplens/lenskit/wiki/Manual)
+-  Common arguments: [**lenskit-input-data**(7)](man:lenskit-input-data(7)),
+   [**lenskit-script-environment**(7)](man:lenskit-script-environment(7))
+-  Man pages for subcommands: [**lenskit-version**(1)](man:lenskit-version(1)),
+   [**lenskit-train-model**(1)](man:lenskit-train-model(1)),
+   [**lenskit-predict**(1)](man:lenskit-predict(1)),
+   [**lenskit-recommend**(1)](man:lenskit-recommend(1)),
+   [**lenskit-global-recommend**(1)](man:lenskit-global-recommend(1)),
+   [**lenskit-graph**(1)](man:lenskit-graph(1)),
+   [**lenskit-pack-ratings**(1)](man:lenskit-pack-ratings(1))
+-  The [LensKit home page](http://lenskit.org)
+-  The [LensKit manual](http://lenskit.org/documentation)
 
 ## Project Information
 
 This command is a part of LensKit, an open source recommender systems toolkit
-developed by [GroupLens Research](http://grouplens.org).
-Copyright 2010-2014 Regents of the University of Minnesota and contributors.
+developed by [GroupLens Research](http://grouplens.org).\\
+Copyright 2010-2015 LensKit contributors\\
+Copyright 2010-2014 Regents of the University of Minnesota
 
 Work on LensKit has been funded by the National Science Foundation under
 grants IIS 05-34939, 08-08692, 08-12148, and 10-17697.

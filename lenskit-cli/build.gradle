@@ -33,19 +33,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 import org.gradle.process.internal.ExecException
-import java.util.zip.ZipFile
 
 apply from: "$rootDir/gradle/maven.gradle"
 apply plugin: 'groovy'
+apply from: "$rootDir/gradle/test-utils.gradle"
 
 dependencies {
     compile project(':lenskit-all')
-    compile group: 'net.sourceforge.argparse4j', name: 'argparse4j', version: '0.4.3'
-    compile group: 'ch.qos.logback', name: 'logback-classic', version: logbackVersion
+    compile group: 'net.sourceforge.argparse4j', name: 'argparse4j', version: '0.4.4'
+    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.1.3'
+    compileOnly group: 'com.google.auto.service', name: 'auto-service', version: '1.0-rc2'
 
     runtime group: 'org.fusesource.jansi', name: 'jansi', version: '1.8'
-    runtime group: 'org.slf4j', name: 'jul-to-slf4j', version: slf4jVersion
+    runtime group: 'org.slf4j', name: 'jul-to-slf4j', version: '1.7.12'
 }
 
 meta {
@@ -53,41 +55,9 @@ meta {
     description 'Command-line tools for interacting with LensKit.'
 }
 
-// Make LensKit version info available
-task versionInfo {
-    ext.versionFile = {
-        "$sourceSets.main.output.resourcesDir/META-INF/lenskit/version.properties"
-    }
-    outputs.file versionFile
-    inputs.property 'version', version
-}
-versionInfo << {
-    def vf = file(versionFile)
-    mkdir vf.parentFile
-    vf.text = "lenskit.version=$version\n"
-}
-classes.dependsOn versionInfo
-
-// Build an application
-apply plugin: 'application'
-
-mainClassName = 'org.grouplens.lenskit.cli.Main'
-applicationName = 'lenskit'
-
-// We need to be able to start lenskit-eval as well as lenskit
-task evalStartScripts(type: CreateStartScripts) {
-    applicationName = 'lenskit-eval'
-    mainClassName = 'org.grouplens.lenskit.eval.cli.EvalCLI'
-    classpath = startScripts.classpath
-    outputDir = startScripts.outputDir
-    optsEnvironmentVar = 'LENSKIT_OPTS'
-}
-applicationDistribution.from(evalStartScripts) {
-    into 'bin'
-}
-
 // Render the manpages
-task renderManPages(group: 'build') {
+task renderManPages(group: 'documentation') {
+    description "Renders the man pages with Pandoc."
     ext.manDir = 'src/man'
     ext.outputDir = "$buildDir/man"
     ext.filterScript = 'src/man/filter-manpage.py'
@@ -105,7 +75,6 @@ task renderManPages(group: 'build') {
                     executable 'pandoc'
                     args '-Mheader=LensKit'
                     args "-Mfooter=$version"
-                    args '-Msection=1'
                     args '-F', file(filterScript)
                     args '-s', '-t', 'man'
                     args '-o', file("$outputDir/$name")
@@ -119,53 +88,49 @@ task renderManPages(group: 'build') {
         }
     }
 }
-applicationDistribution.from(renderManPages) {
-    into 'man'
-}
 
-// aggregate license info and notices from dependencies
-task notices(group: 'build') {
-    ext.noticeFile = "$buildDir/NOTICE.txt"
-    inputs.files configurations.runtime
-    outputs.file noticeFile
-
+// Render the manpages
+task prepareManWeb(group: 'documentation') {
+    description "Processes the man pages for use in the web site."
+    ext.manDir = 'src/man'
+    ext.outputDir = "$buildDir/man-md"
+    ext.filterScript = 'src/man/filter-man-html.py'
+    inputs.source fileTree(manDir) {
+        include '*.md'
+    }
+    inputs.file filterScript
+    outputs.dir outputDir
     doLast {
-        def cfg = configurations.runtime.resolvedConfiguration
-        file(noticeFile).withPrintWriter { out ->
-            out.println("This file contains the notices required by the libraries used by LensKit.")
-            out.println()
+        mkdir outputDir
+        for (doc in inputs.sourceFiles.files) {
+            def match = doc.name =~ /((lenskit[a-z-]*)\.(\d+))\.md/
+            if (!match) {
+                throw new IllegalArgumentException("invalid man source file $doc.name")
+            }
+            def fn = match.group(1)
+            def name = match.group(2)
+            def sec = match.group(3)
+            try {
+                file("$outputDir/${fn}.md").withOutputStream { str ->
+                    def string = """---
+title: $name($sec)
+---
 
-            cfg.resolvedArtifacts*.file.each { File jar ->
-                def zip = new ZipFile(jar)
-                try {
-                    def noticeEntry = zip.getEntry("META-INF/NOTICE.txt")
-                    if (noticeEntry != null) {
-                        def notice = zip.getInputStream(noticeEntry).text
-                        out.println("${jar.name}:")
-                        notice.eachLine { line ->
-                            out.println("    ${line}")
-                        }
-                        out.println()
+"""
+                    str.write(string.getBytes("UTF-8"))
+                    exec {
+                        executable 'pandoc'
+                        args '-F', file(filterScript)
+                        args '-t', 'markdown'
+                        args doc
+                        standardOutput = str
                     }
-                } finally {
-                    zip.close()
                 }
+            } catch (ExecException e) {
+                logger.warn 'pandoc {}: {}', name, e
+                logger.warn 'skipping man page build'
+                throw new StopExecutionException("cannot run pandoc")
             }
         }
     }
-}
-applicationDistribution.from(notices)
-// copy license texts into the distribution
-applicationDistribution.from('src/licenses')
-// include aggregate javadoc
-applicationDistribution.from(rootProject.tasks['javadoc']) {
-    into 'javadoc'
-}
-
-// make standard tasks build the application
-build.dependsOn installApp
-assemble.dependsOn distZip, distTar
-
-if (hasProperty('lenskit.install.dir')) {
-    installApp.destinationDir = rootProject.file(getProperty('lenskit.install.dir'))
 }

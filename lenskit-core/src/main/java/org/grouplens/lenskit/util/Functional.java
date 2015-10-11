@@ -20,6 +20,7 @@
  */
 package org.grouplens.lenskit.util;
 
+import com.google.common.base.Equivalence;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.hash.Funnel;
@@ -85,6 +86,17 @@ public final class Functional {
     }
 
     /**
+     * A function that wraps objects according to an equivalence relation.
+     * @param equiv The equivalence.
+     * @param <T> The type of object to wrap.
+     * @return A function that wraps its arguments in an equivalence wrapper.
+     * @see Equivalence#wrap(Object)
+     */
+    public static <T> Function<T,Equivalence.Wrapper<T>> equivWrap(Equivalence<T> equiv) {
+        return new EquivWrap<>(equiv);
+    }
+
+    /**
      * A {@link Funnel} that serializes an object to the sink.
      * @return A funnel that funnels objects by serializing them.
      */
@@ -99,7 +111,7 @@ public final class Functional {
      * @param <T> The type to which to cast arguments.
      * @param target The target type for arguments.
      * @return A function which, when applied to an object, casts it to type
-     *         {@var target}.
+     *         <var>target</var>.
      */
     public static <F, T> Function<F, T> cast(final Class<T> target) {
         return new Function<F, T>() {
@@ -124,6 +136,24 @@ public final class Functional {
                 }
             } catch (IOException ex) {
                 throw Throwables.propagate(ex);
+            }
+        }
+    }
+
+    private static class EquivWrap<T> implements Function<T,Equivalence.Wrapper<T>> {
+        private final Equivalence<T> equivalence;
+
+        public EquivWrap(Equivalence<T> equiv) {
+            equivalence = equiv;
+        }
+
+        @Nullable
+        @Override
+        public Equivalence.Wrapper<T> apply(@Nullable T input) {
+            if (input == null) {
+                return null;
+            } else {
+                return equivalence.wrap(input);
             }
         }
     }

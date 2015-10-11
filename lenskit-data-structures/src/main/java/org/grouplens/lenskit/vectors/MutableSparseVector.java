@@ -22,10 +22,8 @@ package org.grouplens.lenskit.vectors;
 
 import com.google.common.base.Preconditions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import it.unimi.dsi.fastutil.Arrays;
 import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.doubles.DoubleArrayList;
-import it.unimi.dsi.fastutil.doubles.DoubleArrays;
 import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
 import it.unimi.dsi.fastutil.longs.*;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectArrayMap;
@@ -40,6 +38,8 @@ import javax.annotation.Nullable;
 import java.io.Serializable;
 import java.util.*;
 import java.util.Map.Entry;
+
+import static it.unimi.dsi.fastutil.Arrays.quickSort;
 
 /**
  * Mutable version of sparse vector.
@@ -71,7 +71,9 @@ import java.util.Map.Entry;
  *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  * @compat Public
+ * @deprecated Use maps instead
  */
+@Deprecated
 public final class MutableSparseVector extends SparseVector implements Serializable {
     private static final long serialVersionUID = 2L;
 
@@ -180,7 +182,7 @@ public final class MutableSparseVector extends SparseVector implements Serializa
     MutableSparseVector(LongSet keySet, double value) {
         this(keySet);
         keys.setAllActive(true);
-        DoubleArrays.fill(values, 0, keys.domainSize(), value);
+        Arrays.fill(values, 0, keys.domainSize(), value);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -362,7 +364,7 @@ public final class MutableSparseVector extends SparseVector implements Serializa
      */
     public void fill(double value) {
         checkFrozen();
-        DoubleArrays.fill(values, 0, keys.domainSize(), value);
+        Arrays.fill(values, 0, keys.domainSize(), value);
         keys.setAllActive(true);
     }
 
@@ -461,7 +463,7 @@ public final class MutableSparseVector extends SparseVector implements Serializa
      * Subtract another rating vector from this one.
      *
      * <p>After calling this method, every element of this vector has been
-     * decreased by the corresponding element in {@var other}.  Elements
+     * decreased by the corresponding element in <var>other</var>.  Elements
      * with no corresponding element are unchanged.
      *
      * @param other The vector to subtract.
@@ -474,7 +476,7 @@ public final class MutableSparseVector extends SparseVector implements Serializa
      * Add another rating vector to this one.
      *
      * <p>After calling this method, every element of this vector has been
-     * increased by the corresponding element in {@var other}.  Elements
+     * increased by the corresponding element in <var>other</var>.  Elements
      * with no corresponding element are unchanged.
      *
      * @param other The vector to add.
@@ -519,12 +521,12 @@ public final class MutableSparseVector extends SparseVector implements Serializa
 
     /**
      * Set the values in this SparseVector to equal the values in
-     * {@var other} for each key that is present in both vectors.
+     * <var>other</var> for each key that is present in both vectors.
      *
      * <p>After calling this method, every element in this vector that has a key
-     * in {@var other} has its value set to the corresponding value in
-     * {@var other}. Elements with no corresponding key are unchanged, and
-     * elements in {@var other} that are not in this vector are not
+     * in <var>other</var> has its value set to the corresponding value in
+     * <var>other</var>. Elements with no corresponding key are unchanged, and
+     * elements in <var>other</var> that are not in this vector are not
      * inserted.
      *
      * @param other The vector to blit its values into this vector
@@ -554,7 +556,7 @@ public final class MutableSparseVector extends SparseVector implements Serializa
 
     /**
      * Multiply the vector by a scalar. This multiples every element in the
-     * vector by {@var s}.
+     * vector by <var>s</var>.
      *
      * @param s The scalar to rescale the vector by.
      */
@@ -691,18 +693,18 @@ public final class MutableSparseVector extends SparseVector implements Serializa
     /**
      * Construct an immutable sparse vector from this vector's data.
      *
-     * {@var freeze} indicates whether this (mutable) vector should be
+     * <var>freeze</var> indicates whether this (mutable) vector should be
      * frozen as a side effect of generating the immutable form of the
      * vector.  If it is okay to freeze this mutable vector, then
      * parts of the mutable vector may be used to efficiently form the
      * new immutable vector.  Otherwise, the parts of the mutable
      * vector must be copied, to ensure immutability.
      * <p>
-     * {@var freeze} applies
+     * <var>freeze</var> applies
      * also to the channels: any channels of this mutable vector may
      * also be frozen if the vector is frozen, to avoid copying them.
      * <p>
-     * {@var keyDomain} is the key domain for the new immutable sparse
+     * <var>keyDomain</var> is the key domain for the new immutable sparse
      * vector, which should be the key set of the original vector.
      *
      * @param freeze Whether to freeze the vector.
@@ -781,7 +783,7 @@ public final class MutableSparseVector extends SparseVector implements Serializa
      *
      * <p>This method allows a new vector to be constructed from
      * pre-created arrays.  After wrapping arrays in a sparse vector, client
-     * code should not modify them (particularly the {@var keys}
+     * code should not modify them (particularly the <var>keys</var>
      * array).  The key domain of the newly created vector will be the
      * same as the keys.
      *
@@ -790,7 +792,7 @@ public final class MutableSparseVector extends SparseVector implements Serializa
      * @param values The values for the vector, in key order.
      * @return A sparse vector backed by the provided arrays.
      * @throws IllegalArgumentException if there is a problem with the provided
-     *                                  arrays (length mismatch, {@var keys} not sorted, etc.).
+     *                                  arrays (length mismatch, <var>keys</var> not sorted, etc.).
      */
     public static MutableSparseVector wrap(long[] keys, double[] values) {
         return wrap(keys, values, keys.length);
@@ -801,18 +803,18 @@ public final class MutableSparseVector extends SparseVector implements Serializa
      *
      * <p> This method allows a new vector to be constructed from
      * pre-created arrays. After wrapping arrays in a sparse vector,
-     * client code should not modify them (particularly the {@var
-     * keys} array).  The key domain of the newly created vector will
+     * client code should not modify them (particularly the <var>keys</var>
+     * array).  The key domain of the newly created vector will
      * be the same as the keys.
      *
      * @param keys   Array of entry keys. This array must be in sorted order and
      *               be duplicate-free.
      * @param values The values for the vector.
-     * @param size   The size of the vector; only the first {@var size}
+     * @param size   The size of the vector; only the first <var>size</var>
      *               entries from each array are actually used.
      * @return A sparse vector backed by the provided arrays.
      * @throws IllegalArgumentException if there is a problem with the provided
-     *                                  arrays (length mismatch, {@var keys} not sorted, etc.).
+     *                                  arrays (length mismatch, <var>keys</var> not sorted, etc.).
      */
     public static MutableSparseVector wrap(long[] keys, double[] values, int size) {
         if (values.length < size) {
@@ -869,7 +871,7 @@ public final class MutableSparseVector extends SparseVector implements Serializa
     public static MutableSparseVector wrapUnsorted(long[] keys, double[] values) {
         IdComparator comparator = new IdComparator(keys);
         ParallelSwapper swapper = new ParallelSwapper(keys, values);
-        Arrays.quickSort(0, keys.length, comparator, swapper);
+        quickSort(0, keys.length, comparator, swapper);
 
         return MutableSparseVector.wrap(keys, values);
     }

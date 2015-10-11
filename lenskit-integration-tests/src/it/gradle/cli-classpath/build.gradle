@@ -1,0 +1,19 @@
+apply plugin: 'java'
+apply from: 'common.gradle'
+
+task recommend(type: JavaExec) {
+    dependsOn classes
+    classpath configurations.runtime
+    inputs.file 'predictor.groovy'
+
+    main 'org.lenskit.cli.Main'
+    args 'recommend'
+    args '-C', "$buildDir/classes/main"
+    args '-c', 'predictor.groovy'
+    args "--tsv-file", ratingsFile
+    args '100'
+}
+
+check {
+    dependsOn recommend
+}

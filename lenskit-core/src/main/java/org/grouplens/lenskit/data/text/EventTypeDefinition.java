@@ -20,7 +20,7 @@
  */
 package org.grouplens.lenskit.data.text;
 
-import org.grouplens.lenskit.data.event.EventBuilder;
+import org.lenskit.data.events.EventBuilder;
 
 import java.util.List;
 import java.util.Set;
@@ -32,6 +32,7 @@ import java.util.Set;
  *
  * @since 2.2
  */
+@SuppressWarnings("rawtypes")
 public interface EventTypeDefinition {
     /**
      * A simple name for this event

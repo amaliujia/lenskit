@@ -32,8 +32,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-import org.grouplens.lenskit.build.*
+import org.grouplens.lenskit.build.GitExtension
 
 ext.webUrl = 'http://lenskit.org'
 
@@ -50,11 +49,8 @@ apply plugin: 'base'
 
 allprojects { project ->
     group 'org.grouplens.lenskit'
-    version '2.2-SNAPSHOT'
+    version '3.0-SNAPSHOT'
     
-    ext.groovyVersion = '2.1.5'
-    ext.logbackVersion = '1.0.13'
-    ext.slf4jVersion = '1.7.6'
     ext.getConfigProperty = { name, dft ->
         if (project.hasProperty(name)) {
             return project.getProperty(name)
@@ -69,8 +65,10 @@ allprojects { project ->
             mavenLocal()
         }
         mavenCentral()
-        maven {
-            url "https://oss.sonatype.org/content/repositories/snapshots/"
+        if (project.version.endsWith('-SNAPSHOT')) {
+            maven {
+                url "https://oss.sonatype.org/content/repositories/snapshots/"
+            }
         }
     }
     configurations {
@@ -118,8 +116,15 @@ task reportTests(type: TestReport) {
 
 subprojects {
     apply plugin: 'java'
-    sourceCompatibility = '1.6'
-    targetCompatibility = '1.6'
+    sourceCompatibility = '1.7'
+    targetCompatibility = '1.7'
+
+    // Create a compileOnly configuration
+    configurations {
+        compileOnly.visible = false
+        compile.extendsFrom compileOnly
+    }
+
     sourceSets.all { ss ->
         // generate resources & classes to same dir
         ss.output.resourcesDir = ss.output.classesDir
@@ -127,9 +132,8 @@ subprojects {
 
     // don't package until testing
     jar.mustRunAfter 'test'
-    tasks.withType(Upload) { task ->
-        // check before uploading. upload, not jar, waits in case a check requires the jar
-        task.mustRunAfter 'check'
+    tasks.matching({it.name == 'uploadArchives'}).each { task ->
+        task.mustRunAfter check
     }
     // defer javadoc until after the build
     javadoc.mustRunAfter 'classes'
@@ -146,31 +150,32 @@ subprojects {
         maxHeapSize = '512m'
         enableAssertions = true
         reports.junitXml.enabled = true
-        reports.html.enabled = false
+        reports.html.enabled = true
+
+        testLogging {
+            exceptionFormat "full"
+        }
     }
     reportTests.reportOn test
 
     // some common deps shared by everything
     dependencies {
-        compile group: 'org.slf4j', name: 'slf4j-api', version: slf4jVersion
+        compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.12'
         compile group: 'com.google.code.findbugs', name: 'annotations', version: '2.0.1'
+
+        testCompile group: 'junit', name: 'junit', version: '4.11'
+        testCompile group: 'org.hamcrest', name: 'hamcrest-library', version: '1.3'
     }
 
     apply from: "$rootDir/gradle/class-list.gradle"
     apply from: "$rootDir/gradle/license.gradle"
 
-    if (name != 'lenskit-test') {
-        dependencies {
-            testCompile project(':lenskit-test')
-            testRuntime group: 'ch.qos.logback', name: 'logback-classic', version: logbackVersion
-        }
-        test {
-            systemProperties listener: 'org.grouplens.lenskit.util.test.LoggingListener'
-            systemProperties 'log.file': "$buildDir/test.log"
+    configurations.compile.dependencies.all { dep ->
+        if (!(dep instanceof ProjectDependency)) {
+            rootProject.configurations.allDeps.dependencies << dep
         }
     }
-
-    configurations.compile.dependencies.all { dep ->
+    configurations.compileOnly.dependencies.all { dep ->
         if (!(dep instanceof ProjectDependency)) {
             rootProject.configurations.allDeps.dependencies << dep
         }

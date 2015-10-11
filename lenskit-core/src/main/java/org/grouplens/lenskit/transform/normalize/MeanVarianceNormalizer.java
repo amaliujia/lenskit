@@ -20,18 +20,21 @@
  */
 package org.grouplens.lenskit.transform.normalize;
 
+import com.google.common.base.Preconditions;
 import it.unimi.dsi.fastutil.doubles.DoubleIterator;
 import org.grouplens.grapht.annotation.DefaultProvider;
-import org.grouplens.lenskit.baseline.MeanDamping;
-import org.grouplens.lenskit.core.Shareable;
-import org.grouplens.lenskit.core.Transient;
-import org.grouplens.lenskit.cursors.Cursor;
-import org.grouplens.lenskit.data.dao.EventDAO;
-import org.grouplens.lenskit.data.event.Rating;
-import org.grouplens.lenskit.data.pref.Preference;
+import org.lenskit.inject.Shareable;
+import org.lenskit.inject.Transient;
+import org.lenskit.baseline.MeanDamping;
+import org.lenskit.util.io.ObjectStream;
+import org.lenskit.data.dao.EventDAO;
+import org.lenskit.data.ratings.Rating;
 import org.grouplens.lenskit.vectors.MutableSparseVector;
 import org.grouplens.lenskit.vectors.SparseVector;
 import org.grouplens.lenskit.vectors.VectorEntry;
+import org.lenskit.util.math.Scalars;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -53,6 +56,10 @@ import java.io.Serializable;
  * towards the average community variance. Accordingly, set smoothing = 0 (or
  * use default constructor) for no smoothing. The 'global variance' parameter
  * only pertains to smoothing, and is unnecessary otherwise.
+ * <p>
+ * If the reference vector has a standard deviation of 0 (as determined by {@link Scalars#isZero(double)}),
+ * and there is no smoothing, then no scaling is done (it is treated as if the standard deviation is 1). This
+ * is to keep the behavior well-defined in all cases.
  *
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
@@ -60,6 +67,7 @@ import java.io.Serializable;
 @Shareable
 public class MeanVarianceNormalizer extends AbstractVectorNormalizer implements Serializable {
     private static final long serialVersionUID = -7890335060797112954L;
+    private static final Logger logger = LoggerFactory.getLogger(MeanVarianceNormalizer.class);
 
     /**
      * A Builder for UserVarianceNormalizers that computes the variance from a
@@ -76,11 +84,12 @@ public class MeanVarianceNormalizer extends AbstractVectorNormalizer implements 
          *
          * @param dao The DAO from which to get the global mean.
          * @param d   A Bayesian damping term.  The normalizer pretends each user has an
-         *            additional {@var d} ratings that are equal to the global mean.
+         *            additional <var>d</var> ratings that are equal to the global mean.
          */
         @Inject
         public Builder(@Transient EventDAO dao,
                        @MeanDamping double d) {
+            Preconditions.checkArgument(d >= 0, "damping cannot be negative");
             this.dao = dao;
             damping = d;
         }
@@ -89,15 +98,14 @@ public class MeanVarianceNormalizer extends AbstractVectorNormalizer implements 
         public MeanVarianceNormalizer get() {
             double variance = 0;
 
-            if (damping != 0) {
+            if (damping > 0) {
                 double sum = 0;
 
-                Cursor<Rating> ratings = dao.streamEvents(Rating.class);
+                ObjectStream<Rating> ratings = dao.streamEvents(Rating.class);
                 int numRatings = 0;
                 for (Rating r : ratings) {
-                    Preference p = r.getPreference();
-                    if (p != null) {
-                        sum += p.getValue();
+                    if (r.hasValue()) {
+                        sum += r.getValue();
                         numRatings++;
                     }
                 }
@@ -108,9 +116,8 @@ public class MeanVarianceNormalizer extends AbstractVectorNormalizer implements 
                 sum = 0;
 
                 for (Rating r : ratings) {
-                    Preference p = r.getPreference();
-                    if (p != null) {
-                        double delta = mean - p.getValue();
+                    if (r.hasValue()) {
+                        double delta = mean - r.getValue();
                         sum += delta * delta;
                     }
                 }
@@ -139,6 +146,7 @@ public class MeanVarianceNormalizer extends AbstractVectorNormalizer implements 
      * @param globalVariance global variance to use in the damping calculations.
      */
     public MeanVarianceNormalizer(double damping, double globalVariance) {
+        Preconditions.checkArgument(damping >= 0, "damping cannot be negative");
         this.damping = damping;
         this.globalVariance = globalVariance;
     }
@@ -176,6 +184,10 @@ public class MeanVarianceNormalizer extends AbstractVectorNormalizer implements 
                 var += diff * diff;
             }
 
+            if (Scalars.isZero(var) && Scalars.isZero(damping)) {
+                logger.warn("found zero variance for {}, and no damping is enabled", reference);
+            }
+
             /* damping calculation as described in Hofmann '04
              * $\sigma_u^2 = \frac{\sigma^2 + q * \={\sigma}^2}{n_u + q}$
              */
@@ -195,10 +207,9 @@ public class MeanVarianceNormalizer extends AbstractVectorNormalizer implements 
 
         @Override
         public MutableSparseVector apply(MutableSparseVector vector) {
+            double recipSD = Scalars.isZero(stdev) ? 1 : (1 / stdev);
             for (VectorEntry rating : vector) {
-                vector.set(rating.getKey(), /* r' = (r - u) / s */
-                           stdev == 0 ? 0 : // edge case
-                                   (rating.getValue() - mean) / stdev);
+                vector.set(rating, (rating.getValue() - mean) * recipSD);
             }
             return vector;
         }
@@ -206,9 +217,11 @@ public class MeanVarianceNormalizer extends AbstractVectorNormalizer implements 
         @Override
         public MutableSparseVector unapply(MutableSparseVector vector) {
             for (VectorEntry rating : vector) {
-                vector.set(rating.getKey(), /* r = r' * s + u */
-                           stdev == 0 ? mean : // edge case
-                                   (rating.getValue() * stdev) + mean);
+                double val = rating.getValue();
+                if (!Scalars.isZero(stdev)) {
+                    val *= stdev;
+                }
+                vector.set(rating, val + mean);
             }
             return vector;
         }

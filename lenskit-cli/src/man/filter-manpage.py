@@ -28,12 +28,14 @@
 #
 # This script requires the 'pandocfilters' package (pip install pandocfilters)
 
-import pandocfilters
-from pandocfilters import walk, stringify, Header, Str
 import json
 import sys
 import re
 from collections import OrderedDict
+
+import pandocfilters
+from pandocfilters import walk, stringify, Header, Str, Strong, Span, attributes
+
 
 MetaString = pandocfilters.elt('MetaString', 1)
 
@@ -71,20 +73,29 @@ def liftHeaders(key, value, fmt, meta):
         return Header(level, attrs, content)
 
 
-_man_link_re = re.compile(r'^(#|(?:\./)?[^/]+\.\d\.html$)')
+_man_link_re = re.compile(r'^man:(.*)\((\d)\)')
 
 
-def dropLinks(key, value, fmt, meta):
+def interpretManLinks(key, value, fmt, meta):
     if key == 'Link':
         text, link = value
         url, title = link
-        if _man_link_re.match(url) is not None:
-            return text
+        match = _man_link_re.match(url)
+        if match is not None:
+            str = stringify(text)
+            if str.startswith("lenskit"):
+                return text
+            else:
+                rv = Span(attributes(None),
+                          text + [Str(" ("), Strong([Str(match.group(1))]), Str("(%s))" % (match.group(2),))])
+                return rv
+        else:
+            return None
 
 
 doc = json.load(sys.stdin, object_pairs_hook=OrderedDict)
 doc = liftTitle(doc)
 doc = walk(doc, liftHeaders, 'man', doc[0]['unMeta'])
-doc = walk(doc, dropLinks, 'man', doc[0]['unMeta'])
+doc = walk(doc, interpretManLinks, 'man', doc[0]['unMeta'])
 
 json.dump(doc, sys.stdout)

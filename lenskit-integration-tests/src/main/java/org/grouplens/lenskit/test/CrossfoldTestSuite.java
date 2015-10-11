@@ -20,29 +20,23 @@
  */
 package org.grouplens.lenskit.test;
 
-import org.grouplens.lenskit.core.LenskitConfiguration;
-import org.grouplens.lenskit.data.pref.PreferenceDomain;
-import org.grouplens.lenskit.eval.EvalConfig;
-import org.grouplens.lenskit.eval.TaskExecutionException;
-import org.grouplens.lenskit.eval.algorithm.AlgorithmInstanceBuilder;
-import org.grouplens.lenskit.eval.data.GenericDataSource;
-import org.grouplens.lenskit.eval.metrics.predict.CoveragePredictMetric;
-import org.grouplens.lenskit.eval.metrics.predict.MAEPredictMetric;
-import org.grouplens.lenskit.eval.metrics.predict.RMSEPredictMetric;
-import org.grouplens.lenskit.eval.traintest.SimpleEvaluator;
-import org.grouplens.lenskit.util.table.Table;
+import org.lenskit.LenskitConfiguration;
+import org.grouplens.lenskit.data.source.GenericDataSource;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.lenskit.data.ratings.PreferenceDomain;
+import org.lenskit.eval.traintest.AlgorithmInstanceBuilder;
+import org.lenskit.eval.traintest.SimpleEvaluator;
+import org.lenskit.util.table.Table;
 
 import java.io.IOException;
-import java.util.Properties;
 
 import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.junit.Assert.assertThat;
+import static org.junit.Assert.*;
 
 /**
- * A test suite that does cross-validation of an algorithmInfo.
+ * A test suite that does cross-validation of an algorithm.
  */
 public abstract class CrossfoldTestSuite extends ML100KTestSuite {
     @Rule
@@ -53,23 +47,23 @@ public abstract class CrossfoldTestSuite extends ML100KTestSuite {
     protected abstract void checkResults(Table table);
 
     @Test
-    public void testAlgorithmAccuracy() throws TaskExecutionException, IOException {
-        Properties props =  new Properties();
-        props.setProperty(EvalConfig.DATA_DIR_PROPERTY, workDir.newFolder("data").getAbsolutePath());
-        SimpleEvaluator evalCommand = new SimpleEvaluator(props);
+    public void testAlgorithmAccuracy() throws IOException {
+        SimpleEvaluator evalCommand = new SimpleEvaluator();
+        evalCommand.setWorkDir(workDir.newFolder("data").toPath());
         AlgorithmInstanceBuilder algo = new AlgorithmInstanceBuilder();
         configureAlgorithm(algo.getConfig());
-        evalCommand.addAlgorithm(algo);
+        evalCommand.addAlgorithm(algo.build());
 
-        evalCommand.addDataset(new GenericDataSource("ml-100k", ratingDAO, PreferenceDomain.fromString("[1,5]/1")), 5, 0.2);
+        evalCommand.addDataSet(new GenericDataSource("ml-100k", ratingDAO, PreferenceDomain.fromString("[1,5]/1")),
+                               5, 0.2);
+        addExtraConfig(evalCommand);
 
-        evalCommand.addMetric(new CoveragePredictMetric())
-                   .addMetric(new RMSEPredictMetric())
-                   .addMetric(new MAEPredictMetric());
-
-
-        Table result = evalCommand.call();
+        Table result = evalCommand.execute();
         assertThat(result, notNullValue());
         checkResults(result);
+    }
+
+    public void addExtraConfig(SimpleEvaluator eval) {
+        /* do nothing */
     }
 }

@@ -20,16 +20,16 @@
  */
 package org.grouplens.lenskit.baseline
 
-import org.grouplens.lenskit.ItemScorer
-import org.grouplens.lenskit.RecommenderBuildException
-import org.grouplens.lenskit.config.ConfigHelpers
-import org.grouplens.lenskit.core.LenskitConfiguration
-import org.grouplens.lenskit.core.LenskitRecommender
-import org.grouplens.lenskit.core.LenskitRecommenderEngine
-import org.grouplens.lenskit.core.ModelDisposition
-import org.grouplens.lenskit.data.dao.EventDAO
+import org.lenskit.api.RecommenderBuildException
+import org.lenskit.LenskitConfiguration
+import org.lenskit.ModelDisposition
 import org.grouplens.lenskit.test.ML100KTestSuite
 import org.junit.Test
+import org.lenskit.LenskitRecommender
+import org.lenskit.LenskitRecommenderEngine
+import org.lenskit.api.ItemScorer
+import org.lenskit.baseline.LeastSquaresItemScorer
+import org.lenskit.config.ConfigHelpers
 
 import static org.hamcrest.Matchers.instanceOf
 import static org.hamcrest.Matchers.notNullValue
@@ -41,6 +41,20 @@ import static org.junit.Assert.assertThat
  * @author <a href="http://www.grouplens.org">GroupLens Research</a>
  */
 public class LeastSquaresBuildSerializeTest extends ML100KTestSuite {
+    @Test
+    public void testBuildWithItemSubset() {
+        LenskitConfiguration config = ConfigHelpers.load {
+            bind ItemScorer to LeastSquaresItemScorer
+        }
+
+        LenskitRecommenderEngine engine =
+                LenskitRecommenderEngine.newBuilder()
+                                        .addConfiguration(config)
+                                        .addConfiguration(itemSubsetConfig, ModelDisposition.EXCLUDED)
+                                        .build()
+        assertThat(engine, notNullValue())
+    }
+
     @Test
     public void testBuildAndSerializeModel() throws RecommenderBuildException, IOException {
         LenskitConfiguration config = ConfigHelpers.load {
@@ -66,7 +80,7 @@ public class LeastSquaresBuildSerializeTest extends ML100KTestSuite {
         assertThat(loaded, notNullValue())
 
         LenskitRecommender rec = loaded.createRecommender()
-        assertThat(rec.getItemScorer(),
+        assertThat(rec.itemScorer,
                    instanceOf(LeastSquaresItemScorer.class))
     }
 }
